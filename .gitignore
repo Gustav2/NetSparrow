@@ -327,3 +327,6 @@ pyrightconfig.json
 .idea/
 .vscode/
 .vs/
+
+
+ML/data/
