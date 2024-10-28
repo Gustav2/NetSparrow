@@ -14,6 +14,7 @@ services:
       args:
         DOMAIN: ${DOMAIN}
         EMAIL: ${EMAIL}
+        GUNICORN_PORT: ${GUNICORN_PORT}
         DJANGO: application
     ports:
       - 80:80
@@ -25,8 +26,8 @@ services:
 
   application:
     build: ./${APP_FOLDER}
-    command: gunicorn --bind 0.0.0.0:${DJANGO_APP_PORT} --workers 3 ${DJANGO_APP}:application
+    command: gunicorn --bind 0.0.0.0:${GUNICORN_PORT} --workers 3 ${DJANGO_APP}:application
     environment:
       - DJANGO_ENV=${DJANGO_ENV}
     ports:
-    - "${DJANGO_APP_PORT}:${DJANGO_APP_PORT}"
+    - "${GUNICORN_PORT}:${GUNICORN_PORT}"
