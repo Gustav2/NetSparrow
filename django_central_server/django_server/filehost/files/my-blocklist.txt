@@ -1,0 +1,3 @@
+0.0.0.0 www.google.com
+0.0.0.0 www.milk.com
+0.0.0.0 www.things.com
