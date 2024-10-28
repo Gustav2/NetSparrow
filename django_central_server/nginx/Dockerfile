@@ -17,10 +17,12 @@ COPY ./conf.d/django_app.conf /etc/nginx/conf.d/
 ARG DOMAIN
 ARG DJANGO
 ARG EMAIL
+ARG GUNICORN_PORT
 
 ENV DOMAIN=$DOMAIN
 ENV DJANGO=$DJANGO
 ENV EMAIL=$EMAIL
+ENV GUNICORN_PORT=$GUNICORN_PORT
 ENV DOLLAR='$'
 
 # Substitute contents and write a new application.conf file, which is imported
