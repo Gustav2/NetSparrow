@@ -4,6 +4,7 @@
 ### C ###
 # Prerequisites
 *.d
+!/**/conf.d/
 
 # Object files
 *.o
