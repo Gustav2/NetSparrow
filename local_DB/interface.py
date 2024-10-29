@@ -19,7 +19,7 @@ def removePacket(packet):
 
 # Function to flush DB
 def flushDB(verify):
-    if verify == True:
+    if verify == "verify":
         v.flushdb()
     else:
         print("No verify, not flushing DB")
