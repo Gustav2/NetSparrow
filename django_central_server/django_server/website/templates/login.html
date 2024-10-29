@@ -3,16 +3,10 @@
 {% block content %}
 <div class="col-md-6 offset-md-3">
 
-{% if user.is_authenticated %}
-
-<h1>Welcome world</h1>
-
-{% else %}
-
 <h1>Login</h1>
 <br/>
 
-<form method="POST" action="{% url 'home' %}">
+<form method="POST" action="{% url 'login' %}">
     {% csrf_token %}
     <form>
         <div class="mb-3">
@@ -27,8 +21,6 @@
 
 </form>
 </div>
-
-{% endif %}
 
 {% endblock %}
 
