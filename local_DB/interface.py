@@ -1,9 +1,19 @@
+from enum import verify
 import redis as valkey
-import time
+from time import perf_counter_ns
+import random as rand
 
-#Connect to Valkey
+#Connect to Valkey // consider if this should be a function instead
 v = valkey.Redis(host='127.0.0.1', port=6379)
 
+# SHOULD THIS BE IN RUST?????????
+
+# Most of these could potentially benefit from an added "badness" score value
+# so that upper layers could decide how to handle the packet
+
+# Maybe use the expiration function to block IPs for a certain amount of time?
+
+# Need functions to manually save, start, stop and restart DB if needed
 
 # Compare function to check if key exists
 def checkPacket(packet):
@@ -36,7 +46,17 @@ def listDB():
 def sizeDB():
     return v.dbsize()
 
-def speedtest(sample_size):
-    # Something smart that sets the amount of samples in a "sample" database
-    # and then runs a speed test of checking through the entire list
-    # returning a time value in miliseconds
+def speedtest(sample_size, random=False):
+    if random == True:
+        target = rand.randint(0, sample_size)
+    else:
+        target = sample_size / 2
+    print("Creating list...")
+    for i in range(sample_size):
+        v.set(str(i), 'test')
+    t1 = perf_counter_ns()
+    checkPacket(str(target))
+    t2 = perf_counter_ns()
+    flushDB("verify")
+
+    return ((t2-t1) / 1000000)

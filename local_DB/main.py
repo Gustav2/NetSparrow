@@ -1,1 +1,4 @@
-import redis as valkey
+import interface as v
+
+print(v.speedtest(100000, random=True))
+v.flushDB('verify')
