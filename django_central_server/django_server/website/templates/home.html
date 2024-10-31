@@ -3,8 +3,31 @@
 {% block content %}
 
 {% if user.is_authenticated %}
+<h1>Blacklist</h1>
 
-<h1>Welcome world</h1>
+<table class="table table-striped table-hover table-bordered table-sm">
+    <thead class="table-dark">
+      <tr>
+        <th scope="col">#</th>
+        <th scope="col">URL</th>
+        <th scope="col">IP address</th>
+      </tr>
+    </thead>
+    <tbody>
+  {% if blacklists %}
+    {% for blacklist in blacklists %}
+        <tr>
+        <th scope="row">{{ blacklist.id }}</th>
+        <td>{{ blacklist.url }}</td>
+        <td>{{ blacklist.ip }}</td>
+        </tr>
+    {% endfor %}
+
+{% endif %}
+        </tbody>
+    </table>
+
+
 
 {% else %}
 

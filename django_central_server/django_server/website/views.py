@@ -2,9 +2,11 @@ from django.shortcuts import render, redirect
 from django.contrib.auth import authenticate, login, logout
 from django.contrib import messages
 from .forms import SignUpForm
+from .models import Blacklist
 
 def home(request):
-        return render(request, 'home.html', {})
+    blacklists = Blacklist.objects.all()
+    return render(request, 'home.html', {'blacklists': blacklists})
 
 def login_user(request):
     # check if user is authenticated
