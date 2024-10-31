@@ -331,3 +331,4 @@ pyrightconfig.json
 
 
 ML/data/
+local_DB/djangovalkey

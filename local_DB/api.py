@@ -1,10 +1,9 @@
-from enum import verify
-import redis as valkey
+import valkey
 from time import perf_counter_ns
 import random as rand
 
 #Connect to Valkey // consider if this should be a function instead
-v = valkey.Redis(host='127.0.0.1', port=6379)
+v = valkey.Valkey(host='127.0.0.1', port=6379)
 
 # SHOULD THIS BE IN RUST?????????
 
