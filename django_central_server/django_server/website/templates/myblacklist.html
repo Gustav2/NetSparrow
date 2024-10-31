@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<h1>{{ user.username }}'s Blacklist</h1>
+
+{% if blacklist %}
+    <ul>
+    {% for item in blacklist %}
+        <li>{{ item.ip }} - {{ item.url }} - Added on {{ item.created_at }}</li>
+    {% endfor %}
+    </ul>
+{% else %}
+    <p>You have no blacklist entries.</p>
+{% endif %}
+
+
+{% endblock %}

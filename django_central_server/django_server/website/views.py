@@ -49,3 +49,13 @@ def register_user(request):
         return render(request, 'register.html', {'form': form})
 
     return render(request, 'register.html', {'form': form})
+
+def myblacklist(request):
+    if request.user.is_authenticated:
+        user_blacklists = Blacklist.objects.filter(user=request.user)
+        return render(request, 'myblacklist.html', {'blacklists': user_blacklists, 'user': request.user})
+    else:
+        messages.success(request, 'You need to login to view your blacklist')
+        return redirect('login')
+
+
