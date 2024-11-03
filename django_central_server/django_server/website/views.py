@@ -65,15 +65,41 @@ def add_to_my_blacklist(request, blacklist_id):
     return redirect('central_blacklist')
 
 def central_blacklist_view(request):
-    central_blacklist = Blacklist.objects.all()
-    user_blacklist_ids = MyBlacklist.objects.filter(user=request.user).values_list('blacklist_entry_id', flat=True)
-    return render(request, 'central_blacklist.html', {
-        'central_blacklist': central_blacklist,
-        'user_blacklist_ids': user_blacklist_ids
-    })
+    if request.user.is_authenticated:
+        central_blacklist = Blacklist.objects.all()
+        user_blacklist_ids = MyBlacklist.objects.filter(user=request.user).values_list('blacklist_entry_id', flat=True)
+        all_added = all(blacklist.id in user_blacklist_ids for blacklist in central_blacklist)
+        return render(request, 'central_blacklist.html', {
+            'central_blacklist': central_blacklist,
+            'user_blacklist_ids': user_blacklist_ids, 'all_added': all_added,
+        })
+    else:
+        messages.success(request, 'You need to login to view the central blacklist')
+        return redirect('login')
 
 def remove_from_my_blacklist(request, blacklist_id):
     blacklist_entry = get_object_or_404(Blacklist, id=blacklist_id)
     MyBlacklist.objects.filter(user=request.user, blacklist_entry=blacklist_entry).delete()
     messages.success(request, 'Entry removed from your MyBlacklist')
+    return redirect('myblacklist')
+
+def add_all_to_my_blacklist(request):
+    if request.user.is_authenticated:
+        all_blacklists = Blacklist.objects.all()
+        for blacklist_entry in all_blacklists:
+            MyBlacklist.objects.get_or_create(user=request.user, blacklist_entry=blacklist_entry)
+
+        messages.success(request, 'All entries have been added to your MyBlacklist.')
+    else:
+        messages.error(request, 'You need to be logged in to add entries to your MyBlacklist.')
+    
+    return redirect('central_blacklist')
+
+def remove_all_from_my_blacklist(request):
+    if request.user.is_authenticated:
+        MyBlacklist.objects.filter(user=request.user).delete()
+        messages.success(request, 'All entries have been removed from your MyBlacklist.')
+    else:
+        messages.error(request, 'You need to be logged in to remove entries from your MyBlacklist.')
+    
     return redirect('myblacklist')
