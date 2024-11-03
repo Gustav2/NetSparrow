@@ -1,18 +1,30 @@
 {% extends 'base.html' %}
 
 {% block content %}
-
 <h1>{{ user.username }}'s Blacklist</h1>
 
-{% if blacklist %}
-    <ul>
-    {% for item in blacklist %}
-        <li>{{ item.ip }} - {{ item.url }} - Added on {{ item.created_at }}</li>
-    {% endfor %}
-    </ul>
-{% else %}
-    <p>You have no blacklist entries.</p>
-{% endif %}
-
-
+<table class="table table-striped table-hover table-bordered table-sm">
+    <thead class="table-dark">
+      <tr>
+        <th scope="col">#</th>
+        <th scope="col">URL</th>
+        <th scope="col">IP address</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% if myblacklists %}
+      {% for myblacklist in myblacklists %}
+          <tr>
+            <th scope="row">{{ myblacklist.blacklist_entry.id }}</th>
+            <td>{{ myblacklist.blacklist_entry.url }}</td>
+            <td>{{ myblacklist.blacklist_entry.ip }}</td>
+          </tr>
+      {% endfor %}
+    {% else %}
+      <tr>
+        <td colspan="3">You have no blacklist entries.</td>
+      </tr>
+    {% endif %}
+    </tbody>
+</table>
 {% endblock %}
