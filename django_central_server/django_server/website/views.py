@@ -1,4 +1,4 @@
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import authenticate, login, logout
 from django.contrib import messages
 from .forms import SignUpForm
@@ -58,11 +58,22 @@ def myblacklist(request):
         messages.success(request, 'You need to login to view your blacklist')
         return redirect('login')
 
+def add_to_my_blacklist(request, blacklist_id):
+    blacklist_entry = get_object_or_404(Blacklist, id=blacklist_id)
+    MyBlacklist.objects.get_or_create(user=request.user, blacklist_entry=blacklist_entry)
+    messages.success(request, 'Entry added to your MyBlacklist')
+    return redirect('central_blacklist')
 
+def central_blacklist_view(request):
+    central_blacklist = Blacklist.objects.all()
+    user_blacklist_ids = MyBlacklist.objects.filter(user=request.user).values_list('blacklist_entry_id', flat=True)
+    return render(request, 'central_blacklist.html', {
+        'central_blacklist': central_blacklist,
+        'user_blacklist_ids': user_blacklist_ids
+    })
 
-
-#def add_to_my_blacklist(request, blacklist_id):
-#    blacklist_entry = get_object_or_404(Blacklist, id=blacklist_id)
-#    MyBlacklist.objects.get_or_create(user=request.user, blacklist_entry=blacklist_entry)
-#    return redirect('myblacklist')
-
+def remove_from_my_blacklist(request, blacklist_id):
+    blacklist_entry = get_object_or_404(Blacklist, id=blacklist_id)
+    MyBlacklist.objects.filter(user=request.user, blacklist_entry=blacklist_entry).delete()
+    messages.success(request, 'Entry removed from your MyBlacklist')
+    return redirect('myblacklist')

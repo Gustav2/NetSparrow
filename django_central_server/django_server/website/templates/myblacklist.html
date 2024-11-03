@@ -9,6 +9,7 @@
         <th scope="col">#</th>
         <th scope="col">URL</th>
         <th scope="col">IP address</th>
+        <th scope="col">Actions</th>
       </tr>
     </thead>
     <tbody>
@@ -18,11 +19,14 @@
             <th scope="row">{{ myblacklist.blacklist_entry.id }}</th>
             <td>{{ myblacklist.blacklist_entry.url }}</td>
             <td>{{ myblacklist.blacklist_entry.ip }}</td>
+            <td>
+              <a href="{% url 'remove_from_my_blacklist' myblacklist.blacklist_entry.id %}" class="btn btn-danger">Remove</a>
+            </td>
           </tr>
       {% endfor %}
     {% else %}
       <tr>
-        <td colspan="3">You have no blacklist entries.</td>
+        <td colspan="4">You have no blacklist entries.</td>
       </tr>
     {% endif %}
     </tbody>
