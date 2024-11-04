@@ -2,7 +2,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import authenticate, login, logout
 from django.contrib import messages
 from .forms import SignUpForm, AddToCentralBlacklistForm
-from .models import Blacklist, MyBlacklist
+from .models import Blacklist, MyBlacklist, CapturedPacket
 
 def home(request):
     blacklists = Blacklist.objects.all()
@@ -50,44 +50,64 @@ def register_user(request):
 
     return render(request, 'register.html', {'form': form})
 
-def myblacklist(request):
+def myblacklist_view(request):
     if request.user.is_authenticated:
-        user_blacklists = MyBlacklist.objects.filter(user=request.user)
-        return render(request, 'myblacklist.html', {'myblacklists': user_blacklists, 'user': request.user})
+        # Retrieve MyBlacklist entries only for the logged-in user
+        myblacklists = MyBlacklist.objects.filter(user=request.user)
+        return render(request, 'myblacklist.html', {'myblacklists': myblacklists})
     else:
-        messages.success(request, 'You need to login to view your blacklist')
         return redirect('login')
 
 def add_to_my_blacklist(request, blacklist_id):
-    blacklist_entry = get_object_or_404(Blacklist, id=blacklist_id)
-    MyBlacklist.objects.get_or_create(user=request.user, blacklist_entry=blacklist_entry)
-    messages.success(request, 'Entry added to your MyBlacklist')
+    if request.user.is_authenticated:
+        blacklist_entry = get_object_or_404(Blacklist, id=blacklist_id)
+        # Add entry to MyBlacklist only if it doesn't already exist for this user
+        my_blacklist_entry, created = MyBlacklist.objects.get_or_create(
+            user=request.user, blacklist_entry=blacklist_entry
+        )
+        if created:
+            messages.success(request, 'Entry added to your MyBlacklist.')
+        else:
+            messages.info(request, 'This entry is already in your MyBlacklist.')
+    else:
+        messages.error(request, 'You need to be logged in to add entries to your MyBlacklist.')
+
     return redirect('central_blacklist')
+
 
 def central_blacklist_view(request):
     if request.user.is_authenticated:
         central_blacklist = Blacklist.objects.all()
+        # Only get MyBlacklist entries for the logged-in user
         user_blacklist_ids = MyBlacklist.objects.filter(user=request.user).values_list('blacklist_entry_id', flat=True)
         all_added = all(blacklist.id in user_blacklist_ids for blacklist in central_blacklist)
         return render(request, 'central_blacklist.html', {
             'central_blacklist': central_blacklist,
-            'user_blacklist_ids': user_blacklist_ids, 'all_added': all_added,
+            'user_blacklist_ids': user_blacklist_ids, 
+            'all_added': all_added,
         })
     else:
-        messages.success(request, 'You need to login to view the central blacklist')
+        messages.error(request, 'You need to login to view the central blacklist')
         return redirect('login')
 
+
 def remove_from_my_blacklist(request, blacklist_id):
-    blacklist_entry = get_object_or_404(Blacklist, id=blacklist_id)
-    MyBlacklist.objects.filter(user=request.user, blacklist_entry=blacklist_entry).delete()
-    messages.success(request, 'Entry removed from your MyBlacklist')
+    if request.user.is_authenticated:
+        blacklist_entry = get_object_or_404(Blacklist, id=blacklist_id)
+        # Remove the entry from MyBlacklist only for the logged-in user
+        MyBlacklist.objects.filter(user=request.user, blacklist_entry=blacklist_entry).delete()
+        messages.success(request, 'Entry removed from your MyBlacklist')
+    else:
+        messages.error(request, 'You need to be logged in to remove entries from your MyBlacklist.')
+    
     return redirect('myblacklist')
+
 
 def add_all_to_my_blacklist(request):
     if request.user.is_authenticated:
         all_blacklists = Blacklist.objects.all()
         for blacklist_entry in all_blacklists:
-            MyBlacklist.objects.get_or_create(user=request.user, blacklist_entry=blacklist_entry)
+            MyBlacklist.objects.get_or_create(user=request.user, blacklist_entry=blacklist_entry)  # Add user here
 
         messages.success(request, 'All entries have been added to your MyBlacklist.')
     else:
@@ -97,12 +117,13 @@ def add_all_to_my_blacklist(request):
 
 def remove_all_from_my_blacklist(request):
     if request.user.is_authenticated:
-        MyBlacklist.objects.filter(user=request.user).delete()
+        MyBlacklist.objects.filter(user=request.user).delete()  # Remove entries only for the logged-in user
         messages.success(request, 'All entries have been removed from your MyBlacklist.')
     else:
         messages.error(request, 'You need to be logged in to remove entries from your MyBlacklist.')
     
     return redirect('myblacklist')
+
 
 # def add_to_central_blacklist(request):
 #     if request.user.is_authenticated:

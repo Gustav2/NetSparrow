@@ -4,7 +4,6 @@
 <div class="d-flex justify-content-between mb-3">
   <h1>{{ user.username }}'s Blacklist</h1>
   <div>
-    {% comment %} <a href="{% url 'add_to_central_blacklist' %}" class="btn btn-primary">Add to MyBlacklist</a> {% endcomment %}
     {% if myblacklists %}
       <a href="{% url 'remove_all_from_my_blacklist' %}" class="btn btn-danger">Remove All</a>
     {% else %}
@@ -23,22 +22,22 @@
       </tr>
     </thead>
     <tbody>
-    {% if myblacklists %}
+      {% if myblacklists %}
       {% for myblacklist in myblacklists %}
           <tr>
-            <th scope="row">{{ myblacklist.blacklist_entry.id }}</th>
-            <td>{{ myblacklist.blacklist_entry.url }}</td>
-            <td>{{ myblacklist.blacklist_entry.ip }}</td>
-            <td>
-              <a href="{% url 'remove_from_my_blacklist' myblacklist.blacklist_entry.id %}" class="btn btn-danger">Remove</a>
-            </td>
+              <th scope="row">{{ myblacklist.blacklist_entry.id }}</th>
+              <td>{{ myblacklist.blacklist_entry.capturedpacket_entry.url }}</td>
+              <td>{{ myblacklist.blacklist_entry.capturedpacket_entry.ip }}</td>
+              <td>
+                  <a href="{% url 'remove_from_my_blacklist' myblacklist.blacklist_entry.id %}" class="btn btn-danger">Remove</a>
+              </td>
           </tr>
       {% endfor %}
-    {% else %}
-      <tr>
+  {% else %}
+    <tr>
         <td colspan="4">You have no blacklist entries.</td>
-      </tr>
-    {% endif %}
-    </tbody>
+    </tr>
+  {% endif %}
+  </tbody>  
 </table>
 {% endblock %}
