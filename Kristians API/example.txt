@@ -1,0 +1,6 @@
+{
+  "status": "running",
+  "speed": 88,
+  "latency": 23,
+  "packets_blocked": 0
+}
