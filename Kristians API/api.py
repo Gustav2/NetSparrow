@@ -47,7 +47,7 @@ def require_appkey(view_function):
     API endpoints
 """
 @app.route('/status', methods=['GET'])
-@require_appkey
+#@require_appkey
 def get_status():
     status = Log.query.first()
     if not status:
@@ -56,7 +56,7 @@ def get_status():
     return jsonify({"status": status.status})
 
 @app.route('/blocked_packets', methods=['GET'])
-@require_appkey
+#@require_appkey
 def get_blocked_packets():
     # get sum of  all blocked packets in the log
     blocked_packets = Log.query.with_entities(db.func.sum(Log.packets_blocked)).first()
@@ -66,7 +66,7 @@ def get_blocked_packets():
     return jsonify({"blocked_packets": blocked_packets[0]})
 
 @app.route('/log', methods=['POST'])
-@require_appkey
+#@require_appkey
 def add_log():
     data = request.get_json()
     if 'speed' not in data or 'latency' not in data or 'status' not in data or 'packets_blocked' not in data:
@@ -84,7 +84,7 @@ def add_log():
     return jsonify({"message": "Log added successfully"})
 
 @app.route('/log', methods=['GET'])
-@require_appkey
+#@require_appkey
 def get_logs():
     logs = Log.query.order_by(Log.timestamp.desc()).limit(24).all()
     if not logs:
@@ -103,7 +103,7 @@ def get_logs():
     return jsonify(logs_list)
 
 @app.route('/latest_speed', methods=['GET'])
-@require_appkey
+#@require_appkey
 def get_latest_speed():
     log = Log.query.order_by(Log.timestamp.desc()).first()
     if not log:
@@ -112,7 +112,7 @@ def get_latest_speed():
     return jsonify({"speed": log.speed})
 
 @app.route('/latest_latency', methods=['GET'])
-@require_appkey
+#@require_appkey
 def get_latest_latency():
     log = Log.query.order_by(Log.timestamp.desc()).first()
     if not log:
