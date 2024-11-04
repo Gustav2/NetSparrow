@@ -28,4 +28,26 @@ class SignUpForm(UserCreationForm):
         self.fields['password2'].widget.attrs['placeholder'] = 'Confirm Password'
         self.fields['password2'].label = ''
         self.fields['password2'].help_text = '<span class="form-text text-muted"><small>Enter the same password as before, for verification.</small></span>'
-        
+
+class AddToCentralBlacklistForm(forms.Form):
+    IP = forms.CharField(
+        label="",
+        required=False,
+        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'IP Address'})
+    )
+    URL = forms.CharField(
+        label="",
+        required=False,
+        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'URL'})
+    )
+
+    def clean(self):
+        cleaned_data = super().clean()
+        ip = cleaned_data.get("IP")
+        url = cleaned_data.get("URL")
+
+        if not ip and not url:
+            raise forms.ValidationError("Please provide either an IP address or a URL.")
+
+        return cleaned_data
+

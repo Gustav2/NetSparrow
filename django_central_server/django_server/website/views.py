@@ -1,7 +1,7 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import authenticate, login, logout
 from django.contrib import messages
-from .forms import SignUpForm
+from .forms import SignUpForm, AddToCentralBlacklistForm
 from .models import Blacklist, MyBlacklist
 
 def home(request):
@@ -103,3 +103,29 @@ def remove_all_from_my_blacklist(request):
         messages.error(request, 'You need to be logged in to remove entries from your MyBlacklist.')
     
     return redirect('myblacklist')
+
+def add_to_central_blacklist(request):
+    if request.user.is_authenticated:
+        if request.method == 'POST':
+            form = AddToCentralBlacklistForm(request.POST)
+            if form.is_valid():
+                ip = form.cleaned_data.get('IP')
+                url = form.cleaned_data.get('URL')
+
+                # Create or get the central blacklist entry
+                blacklist_entry, created = Blacklist.objects.get_or_create(ip=ip, url=url)
+
+                # Add to user's MyBlacklist
+                MyBlacklist.objects.get_or_create(user=request.user, blacklist_entry=blacklist_entry)
+
+                messages.success(request, 'Entry added to your MyBlacklist')
+                return redirect('myblacklist')
+            else:
+                messages.error(request, 'There was an error in your form submission.')
+        else:
+            form = AddToCentralBlacklistForm()
+    else:
+        messages.error(request, 'You need to be logged in to add entries to your MyBlacklist.')
+        return redirect('login')
+
+    return render(request, 'add_blacklist.html', {'form': form})

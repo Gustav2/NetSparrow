@@ -2,12 +2,15 @@
 
 {% block content %}
 <div class="d-flex justify-content-between mb-3">
-  <h1>My Blacklist</h1>
-  {% if myblacklists %}
-  <a href="{% url 'remove_all_from_my_blacklist' %}" class="btn btn-danger" onclick="return confirm('Are you sure you want to remove all entries from your blacklist? This action cannot be undone.');">Remove All</a>
-  {% else %}
-    <button class="btn btn-secondary" disabled>Nothing to remove</button>
-  {% endif %}
+  <h1>{{ user.username }}'s Blacklist</h1>
+  <div>
+    <a href="{% url 'add_to_central_blacklist' %}" class="btn btn-primary">Add to MyBlacklist</a>
+    {% if myblacklists %}
+      <a href="{% url 'remove_all_from_my_blacklist' %}" class="btn btn-danger">Remove All</a>
+    {% else %}
+      <button class="btn btn-secondary" disabled>Nothing to remove</button>
+    {% endif %}
+  </div>
 </div>
 
 <table class="table table-striped table-hover table-bordered table-sm">
