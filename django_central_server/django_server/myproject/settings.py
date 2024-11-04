@@ -23,9 +23,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-5r@uwu90jxeejt=8b@(ovw7=2um(3x$+m!7ponj$q!e@4=-@it'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = True
 
-ALLOWED_HOSTS = ['test.viktorkirk.com', '192.168.87.157']
+ALLOWED_HOSTS = ['netsparrow.viktorkirk.com', 'localhost', '127.0.0.1']
 
 
 # Application definition
@@ -37,6 +37,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'website',
 ]
 
 MIDDLEWARE = [
@@ -75,8 +76,12 @@ WSGI_APPLICATION = 'myproject.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': 'netsparrow_db',
+        'USER': 'user',
+        'PASSWORD': 'password1234',
+        'HOST': 'localhost',
+        'PORT': '3306',
     }
 }
 
@@ -126,3 +131,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 ACCESS_TOKEN = 'your_secure_random_token_here'
 
+AUTHENTICATION_BACKENDS = [
+    'myproject.backends.EmailBackend',  # Adjust to match your actual app name and backend location
+    'django.contrib.auth.backends.ModelBackend',  # Default Django authentication backend
+]

@@ -1,0 +1,19 @@
+services:
+  valkey:
+    image: valkey/valkey:latest
+    container_name: valkey
+    networks:
+      - valkey
+    volumes:
+      - valkey:/data
+    ports:
+      - 6379:6379
+    restart: on-failure
+    stop_grace_period: 3s
+
+volumes:
+  valkey:
+
+networks:
+  valkey:
+    driver: bridge
