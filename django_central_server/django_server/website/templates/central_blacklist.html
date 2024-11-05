@@ -21,20 +21,21 @@
     </thead>
     <tbody>
       {% for blacklist in central_blacklist %}
-        <tr>
+      <tr>
           <th scope="row">{{ blacklist.id }}</th>
-          <td>{{ blacklist.url }}</td>
-          <td>{{ blacklist.ip }}</td>
+          <td>{{ blacklist.capturedpacket_entry.url }}</td>
+          <td>{{ blacklist.capturedpacket_entry.ip }}</td>
           <td>
-            {% if blacklist.id in user_blacklist_ids %}
-              <button class="btn btn-secondary" disabled>Already added</button>
-            {% else %}
-              <a href="{% url 'add_to_my_blacklist' blacklist.id %}" class="btn btn-primary">Add</a>
-            {% endif %}
+              {% if blacklist.id in user_blacklist_ids %}
+                  <button class="btn btn-secondary" disabled>Already added</button>
+              {% else %}
+                  <a href="{% url 'add_to_my_blacklist' blacklist.id %}" class="btn btn-primary">Add</a>
+              {% endif %}
           </td>
-        </tr>
-      {% endfor %}
-    </tbody>
+      </tr>
+  {% endfor %}
+  
+   </tbody>   
 </table>
 
 {% endblock %}

@@ -1,20 +1,22 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import authenticate, login, logout
 from django.contrib import messages
-from .forms import SignUpForm, AddToCentralBlacklistForm
-from .models import Blacklist, MyBlacklist
+from .forms import SignUpForm
+from .models import Blacklist, MyBlacklist, CapturedPacket
+import json
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.contrib.auth.models import User
 
 def home(request):
     blacklists = Blacklist.objects.all()
     return render(request, 'home.html', {'blacklists': blacklists})
 
 def login_user(request):
-    # check if user is authenticated
     if request.method == 'POST':
         email = request.POST['email_address']
         password = request.POST['password']
 
-        # authenticate user
         user = authenticate(request, username=email, password=password)
 
         if user is not None:
@@ -37,7 +39,6 @@ def register_user(request):
         form = SignUpForm(request.POST)
         if form.is_valid():
             form.save()
-            # Authenticate and login user
             email = form.cleaned_data.get('email')
             password = form.cleaned_data.get('password1')
             user = authenticate(request, username=email, password=password)
@@ -50,19 +51,28 @@ def register_user(request):
 
     return render(request, 'register.html', {'form': form})
 
-def myblacklist(request):
+def myblacklist_view(request):
     if request.user.is_authenticated:
-        user_blacklists = MyBlacklist.objects.filter(user=request.user)
-        return render(request, 'myblacklist.html', {'myblacklists': user_blacklists, 'user': request.user})
+        myblacklists = MyBlacklist.objects.filter(user=request.user)
+        return render(request, 'myblacklist.html', {'myblacklists': myblacklists})
     else:
-        messages.success(request, 'You need to login to view your blacklist')
         return redirect('login')
 
 def add_to_my_blacklist(request, blacklist_id):
-    blacklist_entry = get_object_or_404(Blacklist, id=blacklist_id)
-    MyBlacklist.objects.get_or_create(user=request.user, blacklist_entry=blacklist_entry)
-    messages.success(request, 'Entry added to your MyBlacklist')
+    if request.user.is_authenticated:
+        blacklist_entry = get_object_or_404(Blacklist, id=blacklist_id)
+        my_blacklist_entry, created = MyBlacklist.objects.get_or_create(
+            user=request.user, blacklist_entry=blacklist_entry
+        )
+        if created:
+            messages.success(request, 'Entry added to your MyBlacklist.')
+        else:
+            messages.info(request, 'This entry is already in your MyBlacklist.')
+    else:
+        messages.error(request, 'You need to be logged in to add entries to your MyBlacklist.')
+
     return redirect('central_blacklist')
+
 
 def central_blacklist_view(request):
     if request.user.is_authenticated:
@@ -71,17 +81,24 @@ def central_blacklist_view(request):
         all_added = all(blacklist.id in user_blacklist_ids for blacklist in central_blacklist)
         return render(request, 'central_blacklist.html', {
             'central_blacklist': central_blacklist,
-            'user_blacklist_ids': user_blacklist_ids, 'all_added': all_added,
+            'user_blacklist_ids': user_blacklist_ids, 
+            'all_added': all_added,
         })
     else:
-        messages.success(request, 'You need to login to view the central blacklist')
+        messages.error(request, 'You need to login to view the central blacklist')
         return redirect('login')
 
+
 def remove_from_my_blacklist(request, blacklist_id):
-    blacklist_entry = get_object_or_404(Blacklist, id=blacklist_id)
-    MyBlacklist.objects.filter(user=request.user, blacklist_entry=blacklist_entry).delete()
-    messages.success(request, 'Entry removed from your MyBlacklist')
+    if request.user.is_authenticated:
+        blacklist_entry = get_object_or_404(Blacklist, id=blacklist_id)
+        MyBlacklist.objects.filter(user=request.user, blacklist_entry=blacklist_entry).delete()
+        messages.success(request, 'Entry removed from your MyBlacklist')
+    else:
+        messages.error(request, 'You need to be logged in to remove entries from your MyBlacklist.')
+    
     return redirect('myblacklist')
+
 
 def add_all_to_my_blacklist(request):
     if request.user.is_authenticated:
@@ -104,28 +121,35 @@ def remove_all_from_my_blacklist(request):
     
     return redirect('myblacklist')
 
-def add_to_central_blacklist(request):
-    if request.user.is_authenticated:
-        if request.method == 'POST':
-            form = AddToCentralBlacklistForm(request.POST)
-            if form.is_valid():
-                ip = form.cleaned_data.get('IP')
-                url = form.cleaned_data.get('URL')
+@csrf_exempt  # Disable CSRF for this endpoint
+def packet_capture(request):
+    if request.method == "POST":
+        try:
+            data = json.loads(request.body)
+            ip = data.get('ip')
+            url = data.get('url')
+            user_id = data.get('user_id')
+            
+            if not ip and not url:
+                return JsonResponse({"error": "IP or URL is required."}, status=400)
 
-                # Create or get the central blacklist entry
-                blacklist_entry, created = Blacklist.objects.get_or_create(ip=ip, url=url)
+            user = User.objects.get(id=user_id) if user_id else None
 
-                # Add to user's MyBlacklist
-                MyBlacklist.objects.get_or_create(user=request.user, blacklist_entry=blacklist_entry)
+            captured_packet = CapturedPacket.objects.create(
+                user=user,
+                ip=ip,
+                url=url
+            )
 
-                messages.success(request, 'Entry added to your MyBlacklist')
-                return redirect('myblacklist')
-            else:
-                messages.error(request, 'There was an error in your form submission.')
-        else:
-            form = AddToCentralBlacklistForm()
-    else:
-        messages.error(request, 'You need to be logged in to add entries to your MyBlacklist.')
-        return redirect('login')
+            return JsonResponse({"success": "Packet captured successfully.", "id": captured_packet.id}, status=201)
 
-    return render(request, 'add_blacklist.html', {'form': form})
+        except User.DoesNotExist:
+            return JsonResponse({"error": "User not found."}, status=404)
+        except json.JSONDecodeError:
+            return JsonResponse({"error": "Invalid JSON data."}, status=400)
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=500)
+    
+    return JsonResponse({"error": "POST request required."}, status=405)
+        
+            
