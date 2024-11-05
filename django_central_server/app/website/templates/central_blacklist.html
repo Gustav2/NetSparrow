@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="d-flex justify-content-between mb-3">
+  <h1>Central Blacklist</h1>
+  {% if all_added %}
+    <button class="btn btn-secondary" disabled>All are already added</button>
+  {% else %}
+    <a href="{% url 'add_all_to_my_blacklist' %}" class="btn btn-success" onclick="return confirm('Are you sure you want to add all entries to your MyBlacklist? This action cannot be undone.');">Add All</a>
+  {% endif %}
+</div>
+
+<table class="table table-striped table-hover table-bordered table-sm">
+    <thead class="table-dark">
+      <tr>
+        <th scope="col">#</th>
+        <th scope="col">URL</th>
+        <th scope="col">IP Address</th>
+        <th scope="col">Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for blacklist in central_blacklist %}
+      <tr>
+          <th scope="row">{{ blacklist.id }}</th>
+          <td>{{ blacklist.capturedpacket_entry.url }}</td>
+          <td>{{ blacklist.capturedpacket_entry.ip }}</td>
+          <td>
+              {% if blacklist.id in user_blacklist_ids %}
+                  <button class="btn btn-secondary" disabled>Already added</button>
+              {% else %}
+                  <a href="{% url 'add_to_my_blacklist' blacklist.id %}" class="btn btn-primary">Add</a>
+              {% endif %}
+          </td>
+      </tr>
+  {% endfor %}
+  
+   </tbody>   
+</table>
+
+{% endblock %}

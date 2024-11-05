@@ -1,13 +1,37 @@
 services:
-  web:
-    build: .
-    command: gunicorn --bind 0.0.0.0:8000 --workers 3 demo.wsgi:application
+  db:
+    container_name: mysql-container
+    image: mysql:8.0.39
+    restart: always
+    command: mysqld --default-authentication-plugin=mysql_native_password
     volumes:
-      - .:/app
-      - static_volume:/app/static  # <-- Bind the static volume for collected static files
-      - media_volume:/app/media
-    expose:
-      - "8000"  # Expose port for Caddy
+      - ./mysql:/var/lib/mysql
+    env_file:
+      - ./.env
+    environment:
+      - MYSQL_ROOT_PASSWORD=${SQL_ROOT_PASSWORD}
+      - MYSQL_USER=${SQL_USER}
+      - MYSQL_PASSWORD=${SQL_PASSWORD}
+      - MYSQL_DATABASE=${SQL_DATABASE}
+    ports:
+      - 3306:3306
+
+  web:
+    container_name: django-web
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+    #command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - ./app/:/usr/src/app/
+    env_file:
+      - ./.env
+    ports:
+      - 8000:8000
+    depends_on:
+      - db
+    links:
+      - db
 
   caddy:
     image: caddy:latest
@@ -18,13 +42,9 @@ services:
       - ./Caddyfile:/etc/caddy/Caddyfile
       - caddy_data:/data
       - caddy_config:/config
-      - static_volume:/app/static  # <-- bind the static volume
-      - media_volume:/app/media  # <-- bind the media volume
     depends_on:
       - web
 
 volumes:
   caddy_data:
   caddy_config:
-  static_volume:
-  media_volume:
