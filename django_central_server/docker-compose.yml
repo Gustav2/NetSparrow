@@ -17,7 +17,7 @@ services:
       - 3306:3306
 
   web:
-    container_name: django-web
+    container_name: django-web-container
     build:
       context: ./app
       dockerfile: Dockerfile
@@ -33,6 +33,7 @@ services:
       - db
 
   caddy:
+    container_name: caddy-container
     image: caddy:latest
     ports:
       - "80:80"

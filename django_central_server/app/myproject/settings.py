@@ -24,9 +24,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.environ.get("SECRET_KEY")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = int(os.environ.get("DEBUG", default=0))
+DEBUG = os.environ.get("DEBUG", default=True)
 
-ALLOWED_HOSTS = ["netsparrow.viktorkirk.com", "localhost", "127.0.0.1"]
+ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS", "").split(" ")
 
 CSRF_TRUSTED_ORIGINS = ['https://netsparrow.viktorkirk.com']
 
