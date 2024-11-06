@@ -32,5 +32,6 @@ COPY . .
 
 RUN python manage.py makemigrations
 RUN python manage.py migrate
+RUN python manage.py collectstatic --noinput
 
 CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "3", "myproject.wsgi:application"] 
