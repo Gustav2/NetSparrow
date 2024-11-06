@@ -1,11 +1,14 @@
 netsparrow.viktorkirk.com {
     root * /app
-
+    
+    # Serve static files for requests that match /static/*
     route /static/* {
-        file_server
+        file_server browse
     }
-
+    
+    # Proxy all other requests to the backend server
     reverse_proxy /* web:8000
+
     log {
         output stdout
         level info
