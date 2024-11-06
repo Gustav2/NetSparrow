@@ -81,7 +81,7 @@ def central_blacklist_view(request):
         all_added = all(blacklist.id in user_blacklist_ids for blacklist in central_blacklist)
         return render(request, 'central_blacklist.html', {
             'central_blacklist': central_blacklist,
-            'user_blacklist_ids': user_blacklist_ids, 
+            'user_blacklist_ids': user_blacklist_ids,
             'all_added': all_added,
         })
     else:
@@ -96,7 +96,7 @@ def remove_from_my_blacklist(request, blacklist_id):
         messages.success(request, 'Entry removed from your MyBlacklist')
     else:
         messages.error(request, 'You need to be logged in to remove entries from your MyBlacklist.')
-    
+
     return redirect('myblacklist')
 
 
@@ -109,7 +109,7 @@ def add_all_to_my_blacklist(request):
         messages.success(request, 'All entries have been added to your MyBlacklist.')
     else:
         messages.error(request, 'You need to be logged in to add entries to your MyBlacklist.')
-    
+
     return redirect('central_blacklist')
 
 def remove_all_from_my_blacklist(request):
@@ -118,7 +118,7 @@ def remove_all_from_my_blacklist(request):
         messages.success(request, 'All entries have been removed from your MyBlacklist.')
     else:
         messages.error(request, 'You need to be logged in to remove entries from your MyBlacklist.')
-    
+
     return redirect('myblacklist')
 
 def settings_myblacklist(request):
@@ -127,7 +127,10 @@ def settings_myblacklist(request):
             user_id = request.GET.get('user_id')
             user = User.objects.get(id=user_id)
 
-            myblacklists = MyBlacklist.objects.filter(user=user).values('blacklist_entry__ip', 'blacklist_entry__url')
+            myblacklists = MyBlacklist.objects.filter(user=user).values(
+                'blacklist_entry__capturedpacket_entry__ip',
+                'blacklist_entry__capturedpacket_entry__url'
+            )
 
             return JsonResponse({"myblacklists": list(myblacklists)}, status=200)
 
@@ -135,7 +138,7 @@ def settings_myblacklist(request):
             return JsonResponse({"error": "User not found."}, status=404)
         except Exception as e:
             return JsonResponse({"error": str(e)}, status=500)
-    
+
     return JsonResponse({"error": "GET request required."}, status=405)
 
 @csrf_exempt  # Disable CSRF for this endpoint
@@ -146,7 +149,7 @@ def packet_capture(request):
             ip = data.get('ip')
             url = data.get('url')
             user_id = data.get('user_id')
-            
+
             if not ip and not url:
                 return JsonResponse({"error": "IP or URL is required."}, status=400)
 
@@ -166,7 +169,5 @@ def packet_capture(request):
             return JsonResponse({"error": "Invalid JSON data."}, status=400)
         except Exception as e:
             return JsonResponse({"error": str(e)}, status=500)
-    
+
     return JsonResponse({"error": "POST request required."}, status=405)
-        
-            
