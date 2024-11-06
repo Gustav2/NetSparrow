@@ -13,4 +13,5 @@ urlpatterns = [
     path('add_all_to_my_blacklist/', views.add_all_to_my_blacklist, name='add_all_to_my_blacklist'),
     path('remove_all_from_my_blacklist/', views.remove_all_from_my_blacklist, name='remove_all_from_my_blacklist'),
     path('packet_capture/', views.packet_capture, name='packet_capture'),
+    path('settings/myblacklist/', views.settings_myblacklist, name='settings_myblacklist'),
 ]
