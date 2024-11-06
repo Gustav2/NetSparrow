@@ -1,5 +1,5 @@
 netsparrow.viktorkirk.com {
-    root * /app
+    root * /usr/src/app
     
     # Serve static files for requests that match /static/*
     route /static/* {
