@@ -1,5 +1,11 @@
 netsparrow.viktorkirk.com {
-    reverse_proxy web:8000
+    root * /app
+
+    route /static/* {
+        file_server
+    }
+
+    reverse_proxy /* web:8000
     log {
         output stdout
         level info
