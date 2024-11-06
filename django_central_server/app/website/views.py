@@ -121,6 +121,24 @@ def remove_all_from_my_blacklist(request):
     
     return redirect('myblacklist')
 
+def settings_myblacklist(request):
+    if request.methon == 'POST':
+        try:
+            data = json.loads(request.body)
+            user_id = data.get('user_id')
+            user = User.objects.get(id=user_id)
+            myblacklists = MyBlacklist.objects.filter(user=user)
+            return JsonResponse({"myblacklists": list(myblacklists.values())}, status=200)
+
+        except User.DoesNotExist:
+            return JsonResponse({"error": "User not found."}, status=404)
+        except json.JSONDecodeError:
+            return JsonResponse({"error": "Invalid JSON data."}, status=400)
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=500)
+    
+    return JsonResponse({"error": "POST request required."}, status=405)
+
 @csrf_exempt  # Disable CSRF for this endpoint
 def packet_capture(request):
     if request.method == "POST":
