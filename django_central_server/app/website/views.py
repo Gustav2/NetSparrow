@@ -5,8 +5,12 @@ from .forms import SignUpForm
 from .models import Blacklist, MyBlacklist, CapturedPacket
 import json
 from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
+#from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.models import User
+from rest_framework.authtoken.models import Token
+from rest_framework.decorators import api_view, authentication_classes
+from rest_framework.authentication import TokenAuthentication
+from rest_framework.permissions import IsAuthenticated
 
 def home(request):
     blacklists = Blacklist.objects.all()
@@ -38,7 +42,8 @@ def register_user(request):
     if request.method == 'POST':
         form = SignUpForm(request.POST)
         if form.is_valid():
-            form.save()
+            user = form.save()
+            token, created = Token.objects.get_or_create(user=user)
             email = form.cleaned_data.get('email')
             password = form.cleaned_data.get('password1')
             user = authenticate(request, username=email, password=password)
@@ -121,11 +126,12 @@ def remove_all_from_my_blacklist(request):
 
     return redirect('myblacklist')
 
+@api_view(['GET'])
+@authentication_classes([TokenAuthentication])
 def settings_myblacklist(request):
     if request.method == 'GET':
         try:
-            user_id = request.GET.get('user_id')
-            user = User.objects.get(id=user_id)
+            user = request.user
 
             myblacklists = MyBlacklist.objects.filter(user=user).values(
                 'blacklist_entry__capturedpacket_entry__ip',
@@ -134,26 +140,25 @@ def settings_myblacklist(request):
 
             return JsonResponse({"myblacklists": list(myblacklists)}, status=200)
 
-        except User.DoesNotExist:
-            return JsonResponse({"error": "User not found."}, status=404)
         except Exception as e:
             return JsonResponse({"error": str(e)}, status=500)
 
     return JsonResponse({"error": "GET request required."}, status=405)
 
-@csrf_exempt  # Disable CSRF for this endpoint
+@api_view(['POST'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
 def packet_capture(request):
-    if request.method == "POST":
+    if request.method == 'POST':
         try:
             data = json.loads(request.body)
             ip = data.get('ip')
             url = data.get('url')
-            user_id = data.get('user_id')
+
+            user = request.user
 
             if not ip and not url:
                 return JsonResponse({"error": "IP or URL is required."}, status=400)
-
-            user = User.objects.get(id=user_id) if user_id else None
 
             captured_packet = CapturedPacket.objects.create(
                 user=user,
@@ -163,8 +168,6 @@ def packet_capture(request):
 
             return JsonResponse({"success": "Packet captured successfully.", "id": captured_packet.id}, status=201)
 
-        except User.DoesNotExist:
-            return JsonResponse({"error": "User not found."}, status=404)
         except json.JSONDecodeError:
             return JsonResponse({"error": "Invalid JSON data."}, status=400)
         except Exception as e:
