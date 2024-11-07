@@ -40,6 +40,8 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'website',
+    'rest_framework',
+    'rest_framework.authtoken',
 ]
 
 MIDDLEWARE = [
@@ -139,3 +141,10 @@ AUTHENTICATION_BACKENDS = [
     'myproject.backends.EmailBackend',  # Adjust to match your actual app name and backend location
     'django.contrib.auth.backends.ModelBackend',  # Default Django authentication backend
 ]
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.TokenAuthentication',
+    ],
+}
+
