@@ -21,11 +21,6 @@ RUN pip install -r requirements.txt --no-cache-dir
 # copy project
 COPY . .
 
-# start.sh is a script that will be executed every time the container starts
 COPY start.sh /usr/local/bin/start.sh
 RUN chmod +x /usr/local/bin/start.sh
-CMD ["/usr/local/bin/start.sh"]
-
-#COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
-#RUN chmod +x /usr/local/bin/docker-entrypoint.sh
-#ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
+ENTRYPOINT ["/usr/local/bin/start.sh"]
