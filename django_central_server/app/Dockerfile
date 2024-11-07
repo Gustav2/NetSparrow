@@ -21,17 +21,11 @@ RUN pip install -r requirements.txt --no-cache-dir
 # copy project
 COPY . .
 
-# # Copy the entrypoint script
-# COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+# start.sh is a script that will be executed every time the container starts
+COPY start.sh /usr/local/bin/start.sh
+RUN chmod +x /usr/local/bin/start.sh
+CMD ["/usr/local/bin/start.sh"]
 
-# # Make entrypoint script executable
-# RUN chmod +x /usr/local/bin/docker-entrypoint.sh
-
-# # Entrypoint
-# ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
-
-RUN python manage.py makemigrations
-RUN python manage.py migrate
-RUN python manage.py collectstatic --noinput
-
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "3", "myproject.wsgi:application"] 
+#COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+#RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+#ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
