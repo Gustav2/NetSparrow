@@ -56,7 +56,6 @@ def merge_sort(arr):
             k += 1
     return arr
 
-# merge_sort, with a counter of inversions
 def merge_sort_invertions(arr):
     if len(arr) > 1:
         mid = len(arr) // 2
@@ -90,36 +89,6 @@ def merge_sort_invertions(arr):
 
     return arr, inv_count
 
-def merge_sort(arr):
-    if len(arr) > 1:
-        mid = len(arr) // 2
-        left_half = arr[:mid]
-        right_half = arr[mid:]
-
-        merge_sort(left_half)
-        merge_sort(right_half)
-
-        i = j = k = 0
-        while i < len(left_half) and j < len(right_half):
-            if left_half[i] < right_half[j]:
-                arr[k] = left_half[i]
-                i += 1
-            else:
-                arr[k] = right_half[j]
-                j += 1
-            k += 1
-
-        while i < len(left_half):
-            arr[k] = left_half[i]
-            i += 1
-            k += 1
-
-        while j < len(right_half):
-            arr[k] = right_half[j]
-            j += 1
-            k += 1
-    return arr
-
 def counting_sort(arr):
     max_val = max(arr)
     min_val = min(arr)
@@ -139,6 +108,27 @@ def counting_sort(arr):
         count[arr[i] - min_val] -= 1
 
     return output
+
+# counting sort with freauency of elements
+def counting_sort_freq(arr):
+    max_val = max(arr)
+    min_val = min(arr)
+    range_of_elements = max_val - min_val + 1
+
+    count = [0] * range_of_elements
+    output = [0] * len(arr)
+
+    for num in arr:
+        count[num - min_val] += 1
+
+    for i in range(1, len(count)):
+        count[i] += count[i - 1]
+
+    for i in range(len(arr) - 1, -1, -1):
+        output[count[arr[i] - min_val] - 1] = arr[i]
+        count[arr[i] - min_val] -= 1
+
+    return output, count
 
 def heapify(arr, n, i):
     largest = i
@@ -224,6 +214,10 @@ print("Merge Sort with Inversions:", merge_sort_invertions(arr_merge_inversions)
 # Counting Sort
 arr_counting = arr.copy()
 print("Counting Sort:", counting_sort(arr_counting))
+
+# Counting Sort with Frequency
+arr_counting_freq = arr.copy()
+print("Counting Sort with Frequency:", counting_sort_freq(arr_counting_freq))
 
 # Heap Sort
 arr_heap = arr.copy()
