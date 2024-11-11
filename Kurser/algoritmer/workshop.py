@@ -8,6 +8,16 @@ def insertion_sort(arr):
         arr[j + 1] = key
     return arr
 
+def insertion_sort_descending(arr):
+    for i in range(1, len(arr)):
+        key = arr[i]
+        j = i - 1
+        while j >= 0 and key > arr[j]:
+            arr[j + 1] = arr[j]
+            j -= 1
+        arr[j + 1] = key
+    return arr
+
 def bubble_sort(arr):
     n = len(arr)
     for i in range(n):
@@ -15,7 +25,6 @@ def bubble_sort(arr):
             if arr[j] > arr[j+1]:
                 arr[j], arr[j+1] = arr[j+1], arr[j]
     return arr
-
 
 def merge_sort(arr):
     if len(arr) > 1:
@@ -47,7 +56,6 @@ def merge_sort(arr):
             k += 1
     return arr
 
-
 def counting_sort(arr):
     max_val = max(arr)
     min_val = min(arr)
@@ -67,7 +75,6 @@ def counting_sort(arr):
         count[arr[i] - min_val] -= 1
 
     return output
-
 
 def heapify(arr, n, i):
     largest = i
@@ -133,6 +140,10 @@ arr = [29, 10, 14, 37, 14, 13, 42, 19, 7, 55, 32]
 # Insertion Sort
 arr_insertion = arr.copy()
 print("Insertion Sort:", insertion_sort(arr_insertion))
+
+# Insertion Sort Descending
+arr_insertion_desc = arr.copy()
+print("Insertion Sort Descending:", insertion_sort_descending(arr_insertion_desc))
 
 # Bubble Sort
 arr_bubble = arr.copy()
