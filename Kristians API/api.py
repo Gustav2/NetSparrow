@@ -15,20 +15,12 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
 
-class Firewall(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    status = db.Column(db.String(10), nullable=False)
-    blocked_packets = db.Column(db.Integer, nullable=False, default=0)
-    uptime = db.Column(db.String(20), nullable=False, default="0 minutes")
-
-    def __repr__(self):
-        return f"Firewall('{self.status}', '{self.blocked_packets}', '{self.uptime}')"
-
 class Log(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     timestamp = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     speed = db.Column(db.Integer, nullable=False)
     latency = db.Column(db.Integer, nullable=False)
+    packets_blocked = db.Column(db.Integer, nullable=False)
     status = db.Column(db.String(10), nullable=False)
 
     def __repr__(self):
@@ -55,93 +47,44 @@ def require_appkey(view_function):
     API endpoints
 """
 @app.route('/status', methods=['GET'])
-@require_appkey
+#@require_appkey
 def get_status():
-    status = Firewall.query.first()
+    status = Log.query.first()
     if not status:
         return jsonify({"error": "No firewall status found"}), 404
     
     return jsonify({"status": status.status})
 
 @app.route('/blocked_packets', methods=['GET'])
-@require_appkey
+#@require_appkey
 def get_blocked_packets():
-    blocked_packets = Firewall.query.first()
+    # get sum of  all blocked packets in the log
+    blocked_packets = Log.query.with_entities(db.func.sum(Log.packets_blocked)).first()
     if not blocked_packets:
         return jsonify({"error": "No firewall status found"}), 404
     
-    return jsonify({"blocked_packets": blocked_packets.blocked_packets})
-
-@app.route('/uptime', methods=['GET'])
-@require_appkey
-def get_uptime():
-    uptime = Firewall.query.first()
-    if not uptime:
-        return jsonify({"error": "No firewall status found"}), 404
-    
-    return jsonify({"uptime": uptime.uptime})
-
-@app.route('/blocked_packets', methods=['PATCH'])
-@require_appkey
-def update_blocked_packets():
-    blocked_packets = Firewall.query.first()
-    if not blocked_packets:
-        return jsonify({"error": "No firewall status found"}), 404
-
-    data = request.get_json()
-    if 'blocked_packets' not in data:
-        return jsonify({"error": "Invalid request"}), 400
-
-    blocked_packets.blocked_packets = data['blocked_packets']
-    db.session.commit()
-
-    return jsonify({"message": "Blocked packets updated successfully"})
-
-@app.route('/status', methods=['PATCH'])
-@require_appkey
-def update_status():
-    status = Firewall.query.first()
-    if not status:
-        return jsonify({"error": "No firewall status found"}), 404
-
-    data = request.get_json()
-    if 'status' not in data:
-        return jsonify({"error": "Invalid request"}), 400
-
-    status.status = data['status']
-    db.session.commit()
-
-    return jsonify({"message": "Status updated successfully"})
-
-# return all firewall status
-@app.route('/firewall', methods=['GET'])
-@require_appkey
-def get_firewall():
-    firewall = Firewall.query.first()
-    if not firewall:
-        return jsonify({"error": "No firewall status found"}), 404
-    
-    return jsonify({
-        "status": firewall.status,
-        "blocked_packets": firewall.blocked_packets,
-        "uptime": firewall.uptime
-    })
+    return jsonify({"blocked_packets": blocked_packets[0]})
 
 @app.route('/log', methods=['POST'])
-@require_appkey
+#@require_appkey
 def add_log():
     data = request.get_json()
-    if 'speed' not in data or 'latency' not in data or 'status' not in data:
+    if 'speed' not in data or 'latency' not in data or 'status' not in data or 'packets_blocked' not in data:
         return jsonify({"error": "Invalid request"}), 400
 
-    new_log = Log(speed=data['speed'], latency=data['latency'], status=data['status'])
+    new_log = Log(speed=data['speed'], latency=data['latency'], status=data['status'], packets_blocked=data['packets_blocked'])
+
+    if Log.query.count() >= 24:
+        oldest_log = Log.query.order_by(Log.timestamp.asc()).first()
+        db.session.delete(oldest_log)
+
     db.session.add(new_log)
     db.session.commit()
 
     return jsonify({"message": "Log added successfully"})
 
 @app.route('/log', methods=['GET'])
-@require_appkey
+#@require_appkey
 def get_logs():
     logs = Log.query.order_by(Log.timestamp.desc()).limit(24).all()
     if not logs:
@@ -153,13 +96,14 @@ def get_logs():
             "timestamp": log.timestamp,
             "speed": log.speed,
             "latency": log.latency,
-            "status": log.status
+            "status": log.status,
+            "packets_blocked": log.packets_blocked
         })
 
     return jsonify(logs_list)
 
 @app.route('/latest_speed', methods=['GET'])
-@require_appkey
+#@require_appkey
 def get_latest_speed():
     log = Log.query.order_by(Log.timestamp.desc()).first()
     if not log:
@@ -168,7 +112,7 @@ def get_latest_speed():
     return jsonify({"speed": log.speed})
 
 @app.route('/latest_latency', methods=['GET'])
-@require_appkey
+#@require_appkey
 def get_latest_latency():
     log = Log.query.order_by(Log.timestamp.desc()).first()
     if not log:
@@ -178,9 +122,9 @@ def get_latest_latency():
 
 with app.app_context():
     # Check if there are any records in the table
-    if not Firewall.query.first():
+    if not Log.query.first():
         # Create and add an initial record
-        initial_status = Firewall(status="running", blocked_packets=325, uptime="0 hours")
+        initial_status = Log(status="running", speed=0, latency=0, packets_blocked=0)
         db.session.add(initial_status)
         db.session.commit()
 
