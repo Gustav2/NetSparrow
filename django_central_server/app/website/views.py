@@ -175,25 +175,25 @@ def packet_capture(request):
 
     return JsonResponse({"error": "POST request required."}, status=405)
 
-# api; for getting central blacklist - GET
+# API view for getting the central blacklist - GET
 @api_view(['GET'])
 @authentication_classes([TokenAuthentication])
 def settings_centralblacklist(request):
     if request.method == 'GET':
         try:
-            user = request.user
-
-            myblacklists = MyBlacklist.objects.filter(user=user).values(
+            
+            central_blacklist_entries = Blacklist.objects.all().values(
                 'capturedpacket_entry__ip',
                 'capturedpacket_entry__url'
             )
 
-            return JsonResponse({"myblacklists": list(myblacklists)}, status=200)
+            return JsonResponse({"central_blacklist": list(central_blacklist_entries)}, status=200)
 
         except Exception as e:
             return JsonResponse({"error": str(e)}, status=500)
 
     return JsonResponse({"error": "GET request required."}, status=405)
+
 
 # api; for adding to my blacklist, form existing central blacklist entries - POST
 @api_view(['POST'])
