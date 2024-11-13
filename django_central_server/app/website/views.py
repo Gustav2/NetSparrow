@@ -195,7 +195,7 @@ def settings_centralblacklist(request):
     return JsonResponse({"error": "GET request required."}, status=405)
 
 
-# api; for adding to my blacklist, form existing central blacklist entries - POST
+# api; for adding to my blacklist, from existing central blacklist entries - POST
 @api_view(['POST'])
 @authentication_classes([TokenAuthentication])
 @permission_classes([IsAuthenticated])
@@ -211,18 +211,28 @@ def settings_add_to_myblacklist(request):
             if not ip and not url:
                 return JsonResponse({"error": "IP or URL is required."}, status=400)
 
-            captured_packet = CapturedPacket.objects.get(ip=ip, url=url)
+            captured_packets = CapturedPacket.objects.filter(ip=ip, url=url)
 
-            blacklist_entry = Blacklist.objects.get(capturedpacket_entry=captured_packet)
+            for captured_packet in captured_packets:
+                try:
+                    blacklist_entry = Blacklist.objects.get(capturedpacket_entry=captured_packet)
 
-            MyBlacklist.objects.get_or_create(user=user, blacklist_entry=blacklist_entry)
+                    my_blacklist_entry, created = MyBlacklist.objects.get_or_create(
+                        user=user, blacklist_entry=blacklist_entry
+                    )
+                    
+                    if created:
+                        return JsonResponse({"success": "Entry added to your MyBlacklist."}, status=200)
+                    else:
+                        return JsonResponse({"info": "Entry already exists in your MyBlacklist."}, status=200)
 
-            return JsonResponse({"success": "Entry added to your MyBlacklist."}, status=200)
+                except Blacklist.DoesNotExist:
+                    continue
+
+            return JsonResponse({"error": "No matching central blacklist entry found."}, status=404)
 
         except json.JSONDecodeError:
             return JsonResponse({"error": "Invalid JSON data."}, status=400)
-        except CapturedPacket.DoesNotExist:
-            return JsonResponse({"error": "Captured packet not found."}, status=404)
         except Exception as e:
             return JsonResponse({"error": str(e)}, status=500)
 
@@ -245,10 +255,8 @@ def settings_remove_from_myblacklist(request):
             if not ip and not url:
                 return JsonResponse({"error": "IP or URL is required."}, status=400)
 
-            # Find all captured packets with matching IP and URL
             captured_packets = CapturedPacket.objects.filter(ip=ip, url=url)
 
-            # Iterate through captured packets to find matching Blacklist and MyBlacklist entries
             for captured_packet in captured_packets:
                 try:
                     blacklist_entry = Blacklist.objects.get(capturedpacket_entry=captured_packet)
@@ -258,10 +266,8 @@ def settings_remove_from_myblacklist(request):
                         my_blacklist_entry.delete()
                         return JsonResponse({"success": "Entry removed from your MyBlacklist."}, status=200)
                 except Blacklist.DoesNotExist:
-                    # Continue to next captured_packet if no corresponding Blacklist entry is found
                     continue
 
-            # If no matching MyBlacklist entry was found
             return JsonResponse({"error": "Entry not found in your MyBlacklist."}, status=404)
 
         except json.JSONDecodeError:
