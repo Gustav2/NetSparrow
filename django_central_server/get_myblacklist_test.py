@@ -3,7 +3,7 @@ import requests
 url = "https://netsparrow.viktorkirk.com/settings/myblacklist/"
 
 headers = {
-    "Authorization": "Token ec189526a1ff4dcf88b10b269522b4718538d9f7",
+    "Authorization": "Token 71c08c598319cded9587ff36b0069226fd0565a1",
     "Content-Type": "application/json"
 }
 

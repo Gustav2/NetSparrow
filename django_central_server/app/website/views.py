@@ -178,6 +178,7 @@ def packet_capture(request):
 # api; for getting central blacklist - GET
 @api_view(['GET'])
 @authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
 def settings_centralblacklist(request):
     if request.method == 'GET':
         try:
