@@ -16,5 +16,5 @@ urlpatterns = [
     path('settings/myblacklist/', views.settings_myblacklist, name='settings_myblacklist'),
     path('settings/centralblacklist/', views.settings_centralblacklist, name='settings_centralblacklist'),
     path('settings/add_to_myblacklist/<int:blacklist_id>/', views.settings_add_to_myblacklist, name='settings_add_to_myblacklist'),
-    path('settings/remove_from_myblacklist/<int:blacklist_id>/', views.settings_remove_from_myblacklist, name='settings_remove_from_myblacklist'),
+    path('settings/remove_from_myblacklist/', views.settings_remove_from_myblacklist, name='settings_remove_from_myblacklist'),
 ]

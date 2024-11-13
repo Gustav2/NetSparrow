@@ -242,13 +242,14 @@ def settings_remove_from_myblacklist(request):
 
             user = request.user
 
-            if not ip and not url:
-                return JsonResponse({"error": "IP or URL is required."}, status=400)
+            if not ip or not url:
+                return JsonResponse({"error": "Both IP and URL are required."}, status=400)
 
+            # Locate the captured packet entry based on IP and URL
             captured_packet = CapturedPacket.objects.get(ip=ip, url=url)
-
             blacklist_entry = Blacklist.objects.get(capturedpacket_entry=captured_packet)
 
+            # Remove the entry from MyBlacklist for this user
             MyBlacklist.objects.filter(user=user, blacklist_entry=blacklist_entry).delete()
 
             return JsonResponse({"success": "Entry removed from your MyBlacklist."}, status=200)
@@ -257,6 +258,8 @@ def settings_remove_from_myblacklist(request):
             return JsonResponse({"error": "Invalid JSON data."}, status=400)
         except CapturedPacket.DoesNotExist:
             return JsonResponse({"error": "Captured packet not found."}, status=404)
+        except Blacklist.DoesNotExist:
+            return JsonResponse({"error": "Blacklist entry not found."}, status=404)
         except Exception as e:
             return JsonResponse({"error": str(e)}, status=500)
 
