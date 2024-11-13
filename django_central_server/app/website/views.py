@@ -178,16 +178,17 @@ def packet_capture(request):
 # api; for getting central blacklist - GET
 @api_view(['GET'])
 @authentication_classes([TokenAuthentication])
-@permission_classes([IsAuthenticated])
 def settings_centralblacklist(request):
     if request.method == 'GET':
         try:
-            central_blacklist = Blacklist.objects.all().values(
+            user = request.user
+
+            myblacklists = MyBlacklist.objects.filter(user=user).values(
                 'capturedpacket_entry__ip',
                 'capturedpacket_entry__url'
             )
 
-            return JsonResponse({"central_blacklist": list(central_blacklist)}, status=200)
+            return JsonResponse({"myblacklists": list(myblacklists)}, status=200)
 
         except Exception as e:
             return JsonResponse({"error": str(e)}, status=500)
