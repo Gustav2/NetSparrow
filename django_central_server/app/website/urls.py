@@ -14,4 +14,7 @@ urlpatterns = [
     path('remove_all_from_my_blacklist/', views.remove_all_from_my_blacklist, name='remove_all_from_my_blacklist'),
     path('packet_capture/', views.packet_capture, name='packet_capture'),
     path('settings/myblacklist/', views.settings_myblacklist, name='settings_myblacklist'),
+    path('settings/centralblacklist/', views.settings_centralblacklist, name='settings_centralblacklist'),
+    path('settings/add_to_myblacklist/<int:blacklist_id>/', views.settings_add_to_myblacklist, name='settings_add_to_myblacklist'),
+    path('settings/remove_from_myblacklist/<int:blacklist_id>/', views.settings_remove_from_myblacklist, name='settings_remove_from_myblacklist'),
 ]

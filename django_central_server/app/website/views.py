@@ -174,3 +174,88 @@ def packet_capture(request):
             return JsonResponse({"error": str(e)}, status=500)
 
     return JsonResponse({"error": "POST request required."}, status=405)
+
+# api; for getting central blacklist - GET
+@api_view(['GET'])
+@authentication_classes([TokenAuthentication])
+def settings_centralblacklist(request):
+    if request.method == 'GET':
+        try:
+            central_blacklist = Blacklist.objects.all().values(
+                'capturedpacket_entry__ip',
+                'capturedpacket_entry__url'
+            )
+
+            return JsonResponse({"central_blacklist": list(central_blacklist)}, status=200)
+
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=500)
+
+    return JsonResponse({"error": "GET request required."}, status=405)
+
+# api; for adding to my blacklist, form existing central blacklist entries - PATCH
+@api_view(['PATCH'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def settings_add_to_myblacklist(request):
+    if request.method == 'PATCH':
+        try:
+            data = json.loads(request.body)
+            ip = data.get('ip')
+            url = data.get('url')
+
+            user = request.user
+
+            if not ip and not url:
+                return JsonResponse({"error": "IP or URL is required."}, status=400)
+
+            captured_packet = CapturedPacket.objects.get(ip=ip, url=url)
+
+            blacklist_entry = Blacklist.objects.get(capturedpacket_entry=captured_packet)
+
+            MyBlacklist.objects.get_or_create(user=user, blacklist_entry=blacklist_entry)
+
+            return JsonResponse({"success": "Entry added to your MyBlacklist."}, status=200)
+
+        except json.JSONDecodeError:
+            return JsonResponse({"error": "Invalid JSON data."}, status=400)
+        except CapturedPacket.DoesNotExist:
+            return JsonResponse({"error": "Captured packet not found."}, status=404)
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=500)
+
+    return JsonResponse({"error": "PATCH request required."}, status=405)
+
+
+# api; for removing from my blacklist - DELETE
+@api_view(['DELETE'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def settings_remove_from_myblacklist(request):
+    if request.method == 'DELETE':
+        try:
+            data = json.loads(request.body)
+            ip = data.get('ip')
+            url = data.get('url')
+
+            user = request.user
+
+            if not ip and not url:
+                return JsonResponse({"error": "IP or URL is required."}, status=400)
+
+            captured_packet = CapturedPacket.objects.get(ip=ip, url=url)
+
+            blacklist_entry = Blacklist.objects.get(capturedpacket_entry=captured_packet)
+
+            MyBlacklist.objects.filter(user=user, blacklist_entry=blacklist_entry).delete()
+
+            return JsonResponse({"success": "Entry removed from your MyBlacklist."}, status=200)
+
+        except json.JSONDecodeError:
+            return JsonResponse({"error": "Invalid JSON data."}, status=400)
+        except CapturedPacket.DoesNotExist:
+            return JsonResponse({"error": "Captured packet not found."}, status=404)
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=500)
+
+    return JsonResponse({"error": "DELETE request required."}, status=405)
