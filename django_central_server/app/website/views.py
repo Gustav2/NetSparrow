@@ -242,24 +242,30 @@ def settings_remove_from_myblacklist(request):
 
             user = request.user
 
-            if not ip or not url:
-                return JsonResponse({"error": "Both IP and URL are required."}, status=400)
+            if not ip and not url:
+                return JsonResponse({"error": "IP or URL is required."}, status=400)
 
-            # Locate the captured packet entry based on IP and URL
-            captured_packet = CapturedPacket.objects.get(ip=ip, url=url)
-            blacklist_entry = Blacklist.objects.get(capturedpacket_entry=captured_packet)
+            # Find all captured packets with matching IP and URL
+            captured_packets = CapturedPacket.objects.filter(ip=ip, url=url)
 
-            # Remove the entry from MyBlacklist for this user
-            MyBlacklist.objects.filter(user=user, blacklist_entry=blacklist_entry).delete()
+            # Iterate through captured packets to find matching Blacklist and MyBlacklist entries
+            for captured_packet in captured_packets:
+                try:
+                    blacklist_entry = Blacklist.objects.get(capturedpacket_entry=captured_packet)
+                    my_blacklist_entry = MyBlacklist.objects.filter(user=user, blacklist_entry=blacklist_entry)
+                    
+                    if my_blacklist_entry.exists():
+                        my_blacklist_entry.delete()
+                        return JsonResponse({"success": "Entry removed from your MyBlacklist."}, status=200)
+                except Blacklist.DoesNotExist:
+                    # Continue to next captured_packet if no corresponding Blacklist entry is found
+                    continue
 
-            return JsonResponse({"success": "Entry removed from your MyBlacklist."}, status=200)
+            # If no matching MyBlacklist entry was found
+            return JsonResponse({"error": "Entry not found in your MyBlacklist."}, status=404)
 
         except json.JSONDecodeError:
             return JsonResponse({"error": "Invalid JSON data."}, status=400)
-        except CapturedPacket.DoesNotExist:
-            return JsonResponse({"error": "Captured packet not found."}, status=404)
-        except Blacklist.DoesNotExist:
-            return JsonResponse({"error": "Blacklist entry not found."}, status=404)
         except Exception as e:
             return JsonResponse({"error": str(e)}, status=500)
 

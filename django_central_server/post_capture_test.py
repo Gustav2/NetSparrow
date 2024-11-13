@@ -4,8 +4,8 @@ import json
 url = "https://netsparrow.viktorkirk.com/packet_capture/"
 
 data = {
-    "ip": "444.444.444.002",
-    "url": "http://testt2.com"
+    "ip": "10.10.10.10",
+    "url": "None"
 }
 
 headers = {
