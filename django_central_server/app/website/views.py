@@ -193,12 +193,12 @@ def settings_centralblacklist(request):
 
     return JsonResponse({"error": "GET request required."}, status=405)
 
-# api; for adding to my blacklist, form existing central blacklist entries - PATCH
-@api_view(['PATCH'])
+# api; for adding to my blacklist, form existing central blacklist entries - POST
+@api_view(['POST'])
 @authentication_classes([TokenAuthentication])
 @permission_classes([IsAuthenticated])
 def settings_add_to_myblacklist(request):
-    if request.method == 'PATCH':
+    if request.method == 'POST':
         try:
             data = json.loads(request.body)
             ip = data.get('ip')
@@ -224,7 +224,7 @@ def settings_add_to_myblacklist(request):
         except Exception as e:
             return JsonResponse({"error": str(e)}, status=500)
 
-    return JsonResponse({"error": "PATCH request required."}, status=405)
+    return JsonResponse({"error": "POST request required."}, status=405)
 
 
 # api; for removing from my blacklist - DELETE
