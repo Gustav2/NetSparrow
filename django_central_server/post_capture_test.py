@@ -4,7 +4,7 @@ import json
 url = "https://netsparrow.viktorkirk.com/packet_capture/"
 
 data = {
-    "ip": "10.10.10.10",
+    "ip": "6.6.6.1",
     "url": "None"
 }
 

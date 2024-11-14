@@ -11,7 +11,7 @@ class Blacklist(models.Model):
 
     def __str__(self):
         if self.capturedpacket_entry:
-            return f"{self.capturedpacket_entry.ip or 'No IP'} - {self.capturedpacket_entry.url or 'No URL'}"
+            return f"{self.capturedpacket_entry.ip or None} - {self.capturedpacket_entry.url or None}"
         return "Orphaned Blacklist Entry"
 
 
@@ -36,7 +36,7 @@ class CapturedPacket(models.Model):
     url = models.CharField(max_length=255, null=True, blank=True)
 
     class Meta:
-        unique_together = ('user', 'ip', 'url'), ('user', 'ip'), ('user', 'url')
+        unique_together = ('user', 'ip', 'url')
 
     def clean(self):
         if not self.ip and not self.url:

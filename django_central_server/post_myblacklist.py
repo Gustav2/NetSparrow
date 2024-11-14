@@ -4,8 +4,8 @@ import json
 url = "https://netsparrow.viktorkirk.com/settings/add_to_myblacklist/"
 
 data = {
-    "ip": "444.444.444.005",
-    "url": "http://445.dk"
+    "ip": "10.10.10.10",
+    "url": "No URL"
 }
 
 headers = {

@@ -7,8 +7,8 @@ headers = {
     "Content-Type": "application/json"
 }
 data = {
-    "ip": "444.444.444.005",
-    "url": "http://445.dk"
+    "ip": "1.1.1.1",
+    "url": "Https://www.google.com"
 }
 
 response = requests.delete(url, headers=headers, data=json.dumps(data))
