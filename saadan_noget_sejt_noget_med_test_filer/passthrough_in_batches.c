@@ -6,12 +6,15 @@
 #include <sys/ioctl.h>
 #include <net/if.h>
 #include <unistd.h>
-#include <poll.h>
 #include <sched.h>
+#include <arpa/inet.h>
+#include <netinet/ip.h>
+#include <signal.h>
 
 #define SNAP_LEN 1518
 #define ERRBUF_SIZE 256
-#define BATCH_SIZE 32
+#define BLACKLIST_MAX 1024
+#define IP_STR_LEN 16
 
 typedef struct {
     pcap_t *source_handle;
@@ -19,6 +22,44 @@ typedef struct {
     int mtu;
 } forwarder_args_t;
 
+char blacklist[BLACKLIST_MAX][IP_STR_LEN];
+int blacklist_count = 0;
+volatile int keep_running = 1;
+
+// Signal handler for graceful termination
+void handle_signal(int signal) {
+    keep_running = 0;
+}
+
+// Load blacklist file into memory
+void load_blacklist(const char *filename) {
+    FILE *file = fopen(filename, "r");
+    if (!file) {
+        perror("Error opening blacklist file");
+        exit(EXIT_FAILURE);
+    }
+
+    char ip[IP_STR_LEN];
+    while (fgets(ip, sizeof(ip), file) && blacklist_count < BLACKLIST_MAX) {
+        ip[strcspn(ip, "\n")] = '\0'; // Remove trailing newline
+        strncpy(blacklist[blacklist_count++], ip, IP_STR_LEN);
+    }
+
+    fclose(file);
+    printf("Loaded %d IPs into blacklist\n", blacklist_count);
+}
+
+// Check if an IP is blacklisted
+int is_blacklisted(const char *ip) {
+    for (int i = 0; i < blacklist_count; i++) {
+        if (strcmp(ip, blacklist[i]) == 0) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+// Forward packets between interfaces with blacklist filtering
 void *forward_packets(void *args) {
     forwarder_args_t *forward_args = (forwarder_args_t *)args;
     pcap_t *source_handle = forward_args->source_handle;
@@ -26,20 +67,43 @@ void *forward_packets(void *args) {
 
     struct pcap_pkthdr header;
     const u_char *packet;
-    
-    while (1) {
+
+    FILE *log_file = fopen("blocked_packets.log", "a");
+    if (!log_file) {
+        perror("Error opening log file");
+        exit(EXIT_FAILURE);
+    }
+
+    while (keep_running) {
         packet = pcap_next(source_handle, &header);
         if (packet == NULL) {
-            continue;  // Handle packet read error or timeout
+            continue; // Handle packet read error or timeout
         }
 
+        // Parse IP header
+        struct ip *ip_hdr = (struct ip *)(packet + 14); // Skip Ethernet header
+        char src_ip[IP_STR_LEN], dst_ip[IP_STR_LEN];
+        inet_ntop(AF_INET, &(ip_hdr->ip_src), src_ip, IP_STR_LEN);
+        inet_ntop(AF_INET, &(ip_hdr->ip_dst), dst_ip, IP_STR_LEN);
+
+        // Check blacklist
+        if (is_blacklisted(src_ip) || is_blacklisted(dst_ip)) {
+            fprintf(log_file, "Blocked packet: SRC=%s DST=%s\n", src_ip, dst_ip);
+            fflush(log_file);
+            continue; // Skip forwarding
+        }
+
+        // Forward the packet
         if (pcap_sendpacket(dest_handle, packet, header.len) != 0) {
             fprintf(stderr, "Error sending packet: %s\n", pcap_geterr(dest_handle));
         }
     }
+
+    fclose(log_file);
     return NULL;
 }
 
+// Get the MTU of an interface
 int get_interface_mtu(const char *interface_name) {
     struct ifreq ifr;
     int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
@@ -59,6 +123,7 @@ int get_interface_mtu(const char *interface_name) {
     return ifr.ifr_mtu;
 }
 
+// Optimize interface settings
 void optimize_interface(const char *interface_name) {
     printf("Optimizing interface %s\n", interface_name);
     char command[256];
@@ -71,19 +136,28 @@ void optimize_interface(const char *interface_name) {
 }
 
 int main(int argc, char *argv[]) {
-    if (argc != 3) {
-        fprintf(stderr, "Usage: %s <interface1> <interface2>\n", argv[0]);
+    if (argc != 4) {
+        fprintf(stderr, "Usage: %s <interface1> <interface2> <blacklist_file>\n", argv[0]);
         exit(EXIT_FAILURE);
     }
 
     char *interface1 = argv[1];
     char *interface2 = argv[2];
+    char *blacklist_file = argv[3];
     char errbuf[ERRBUF_SIZE];
 
+    // Load the blacklist
+    load_blacklist(blacklist_file);
+
+    // Set up signal handling
+    signal(SIGINT, handle_signal);
+    signal(SIGTERM, handle_signal);
+
+    // Optimize interfaces
     optimize_interface(interface1);
     optimize_interface(interface2);
 
-    nice(-20);  // Set process to high priority
+    nice(-20); // Set process to high priority
 
     int mtu1 = get_interface_mtu(interface1);
     int mtu2 = get_interface_mtu(interface2);
