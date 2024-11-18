@@ -10,11 +10,17 @@
 #include <arpa/inet.h>
 #include <netinet/ip.h>
 #include <signal.h>
+#include <netinet/tcp.h>
+#include <linux/if_packet.h>
+#include <sys/mman.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
 
 #define SNAP_LEN 1518
 #define ERRBUF_SIZE 256
-#define BLACKLIST_MAX 1024
+#define BLACKLIST_MAX 2048
 #define IP_STR_LEN 16
+#define BATCH_SIZE 32
 
 typedef struct {
     pcap_t *source_handle;
@@ -25,6 +31,98 @@ typedef struct {
 char blacklist[BLACKLIST_MAX][IP_STR_LEN];
 int blacklist_count = 0;
 volatile int keep_running = 1;
+
+FILE *log_file; // Global log file pointer
+
+// Function to calculate checksum
+unsigned short checksum(void *b, int len) {
+    unsigned short *buf = b;
+    unsigned int sum = 0;
+    for (sum = 0; len > 1; len -= 2) {
+        sum += *buf++;
+    }
+    if (len == 1) {
+        sum += *(unsigned char *)buf;
+    }
+    sum = (sum >> 16) + (sum & 0xFFFF);
+    sum += (sum >> 16);
+    return ~sum;
+}
+
+// Send RST to terminate original connection
+void send_tcp_reset(const u_char *packet, int packet_len) {
+    struct ip *ip_hdr = (struct ip *)(packet + 14);
+    struct tcphdr *tcp_hdr = (struct tcphdr *)(packet + 14 + (ip_hdr->ip_hl * 4));
+
+    int sockfd = socket(AF_INET, SOCK_RAW, IPPROTO_RAW);
+    if (sockfd < 0) {
+        perror("Socket error");
+        return;
+    }
+
+    char buffer[4096];
+    memset(buffer, 0, sizeof(buffer));
+
+    struct ip *rst_ip_hdr = (struct ip *)buffer;
+    struct tcphdr *rst_tcp_hdr = (struct tcphdr *)(buffer + sizeof(struct ip));
+
+    // Build IP header for RST
+    rst_ip_hdr->ip_hl = 5;
+    rst_ip_hdr->ip_v = 4;
+    rst_ip_hdr->ip_tos = 0;
+    rst_ip_hdr->ip_len = htons(sizeof(struct ip) + sizeof(struct tcphdr));
+    rst_ip_hdr->ip_id = htons(54321);
+    rst_ip_hdr->ip_off = 0;
+    rst_ip_hdr->ip_ttl = 64;
+    rst_ip_hdr->ip_p = IPPROTO_TCP;
+    rst_ip_hdr->ip_src = ip_hdr->ip_dst;
+    rst_ip_hdr->ip_dst = ip_hdr->ip_src;
+
+    rst_ip_hdr->ip_sum = checksum(rst_ip_hdr, sizeof(struct ip));
+
+    // Build TCP header for RST
+    rst_tcp_hdr->source = tcp_hdr->dest;
+    rst_tcp_hdr->dest = tcp_hdr->source;
+    rst_tcp_hdr->seq = htonl(ntohl(tcp_hdr->ack_seq));
+    rst_tcp_hdr->ack_seq = 0;
+    rst_tcp_hdr->doff = 5;
+    rst_tcp_hdr->rst = 1;
+    rst_tcp_hdr->window = htons(0);
+    rst_tcp_hdr->check = 0; // Calculate checksum below
+
+    // Compute TCP checksum
+    struct {
+        struct in_addr src;
+        struct in_addr dst;
+        uint8_t zero;
+        uint8_t protocol;
+        uint16_t tcp_len;
+    } pseudo_hdr;
+
+    pseudo_hdr.src = ip_hdr->ip_dst;
+    pseudo_hdr.dst = ip_hdr->ip_src;
+    pseudo_hdr.zero = 0;
+    pseudo_hdr.protocol = IPPROTO_TCP;
+    pseudo_hdr.tcp_len = htons(sizeof(struct tcphdr));
+
+    char pseudo_packet[sizeof(pseudo_hdr) + sizeof(struct tcphdr)];
+    memcpy(pseudo_packet, &pseudo_hdr, sizeof(pseudo_hdr));
+    memcpy(pseudo_packet + sizeof(pseudo_hdr), rst_tcp_hdr, sizeof(struct tcphdr));
+
+    rst_tcp_hdr->check = checksum(pseudo_packet, sizeof(pseudo_packet));
+
+    // Destination address
+    struct sockaddr_in dest;
+    dest.sin_family = AF_INET;
+    dest.sin_addr = rst_ip_hdr->ip_dst;
+
+    // Send the packet
+    if (sendto(sockfd, buffer, sizeof(struct ip) + sizeof(struct tcphdr), 0, (struct sockaddr *)&dest, sizeof(dest)) < 0) {
+        perror("Sendto error");
+    }
+
+    close(sockfd);
+}
 
 // Signal handler for graceful termination
 void handle_signal(int signal) {
@@ -46,7 +144,7 @@ void load_blacklist(const char *filename) {
     }
 
     fclose(file);
-    printf("Loaded %d IPs into blacklist\n", blacklist_count);
+    fprintf(log_file, "Loaded %d IPs into blacklist\n", blacklist_count);
 }
 
 // Check if an IP is blacklisted
@@ -68,12 +166,6 @@ void *forward_packets(void *args) {
     struct pcap_pkthdr header;
     const u_char *packet;
 
-    FILE *log_file = fopen("blocked_packets.log", "a");
-    if (!log_file) {
-        perror("Error opening log file");
-        exit(EXIT_FAILURE);
-    }
-
     while (keep_running) {
         packet = pcap_next(source_handle, &header);
         if (packet == NULL) {
@@ -88,18 +180,21 @@ void *forward_packets(void *args) {
 
         // Check blacklist
         if (is_blacklisted(src_ip) || is_blacklisted(dst_ip)) {
+            if (ip_hdr->ip_p == IPPROTO_TCP) {
+                send_tcp_reset(packet, header.len); // Terminate original connection
+            }
             fprintf(log_file, "Blocked packet: SRC=%s DST=%s\n", src_ip, dst_ip);
             fflush(log_file);
-            continue; // Skip forwarding
+            //continue; // Skip forwarding
         }
 
         // Forward the packet
         if (pcap_sendpacket(dest_handle, packet, header.len) != 0) {
-            fprintf(stderr, "Error sending packet: %s\n", pcap_geterr(dest_handle));
+            fprintf(log_file, "Error sending packet: %s\n", pcap_geterr(dest_handle));
+            fflush(log_file);
         }
     }
 
-    fclose(log_file);
     return NULL;
 }
 
@@ -108,13 +203,15 @@ int get_interface_mtu(const char *interface_name) {
     struct ifreq ifr;
     int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
     if (sockfd == -1) {
-        perror("Socket error");
+        fprintf(log_file, "Socket error\n");
+        fflush(log_file);
         return -1;
     }
 
     strncpy(ifr.ifr_name, interface_name, IFNAMSIZ - 1);
     if (ioctl(sockfd, SIOCGIFMTU, &ifr) == -1) {
-        perror("IOCTL error");
+        fprintf(log_file, "IOCTL error\n");
+        fflush(log_file);
         close(sockfd);
         return -1;
     }
@@ -125,7 +222,8 @@ int get_interface_mtu(const char *interface_name) {
 
 // Optimize interface settings
 void optimize_interface(const char *interface_name) {
-    printf("Optimizing interface %s\n", interface_name);
+    fprintf(log_file, "Optimizing interface %s\n", interface_name);
+    fflush(log_file);
     char command[256];
     snprintf(command, sizeof(command), "sudo ethtool -K %s gro off", interface_name);
     system(command);
@@ -145,6 +243,13 @@ int main(int argc, char *argv[]) {
     char *interface2 = argv[2];
     char *blacklist_file = argv[3];
     char errbuf[ERRBUF_SIZE];
+
+    // Open log file
+    log_file = fopen("forwarder.log", "a");
+    if (!log_file) {
+        perror("Error opening log file");
+        exit(EXIT_FAILURE);
+    }
 
     // Load the blacklist
     load_blacklist(blacklist_file);
@@ -190,7 +295,8 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    printf("Forwarding packets between %s and %s...\n", interface1, interface2);
+    fprintf(log_file, "Forwarding packets between %s and %s...\n", interface1, interface2);
+    fflush(log_file);
 
     pthread_t thread1, thread2;
     forwarder_args_t forward1 = {handle1, handle2, mtu2};
@@ -219,6 +325,9 @@ int main(int argc, char *argv[]) {
 
     pcap_close(handle1);
     pcap_close(handle2);
+
+    // Close the log file
+    fclose(log_file);
 
     return 0;
 }
