@@ -11,36 +11,33 @@ class InfoCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      color: AppColors.secondaryColor,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Row(
-            children: [
-              Text(info),
-              const Expanded(child: SizedBox()),
-
-              IconButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => _getRoute(info)),
-
-                  );
-                }, 
-                icon: Icon(Icons.arrow_forward, color: AppColors.textColor),
-              ),
-            ],
-          ),
+        color: AppColors.secondaryColor,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
         ),
-      )
-    );
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                Text(info),
+                const Expanded(child: SizedBox()),
+                IconButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => _getRoute(info)),
+                    );
+                  },
+                  icon: Icon(Icons.arrow_forward, color: AppColors.textColor),
+                ),
+              ],
+            ),
+          ),
+        ));
   }
 
   Widget _getRoute(String route) {

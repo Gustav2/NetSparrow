@@ -20,7 +20,12 @@ class _HomeState extends State<Home> {
   int speed = 0;
   int latency = 0;
 
-  final List<String> overviewCards = ['Option 1', 'Option 2', 'Option 3', 'Option 4'];
+  final List<String> overviewCards = [
+    'Option 1',
+    'Option 2',
+    'Option 3',
+    'Option 4'
+  ];
   final List<String> extrasCards = ['Blacklist', 'Settings', 'Log', 'Support'];
 
   @override
@@ -44,7 +49,7 @@ class _HomeState extends State<Home> {
       });
     } catch (e) {
       setState(() {
-        status = "Error: ${e.toString()}";
+        status = "error";
       });
     }
   }
@@ -54,7 +59,8 @@ class _HomeState extends State<Home> {
     return Scaffold(
       appBar: AppBar(
         title: const StyledTitle('Home'),
-        leading: IconButton(onPressed: fetchFirewallData, icon: const Icon(Icons.sync)),
+        leading: IconButton(
+            onPressed: fetchFirewallData, icon: const Icon(Icons.sync)),
         actions: [
           IconButton(
             onPressed: () {},
@@ -82,10 +88,8 @@ class _HomeState extends State<Home> {
             children: [
               sectionHeading('Overview'),
               InfoCardGrid(_buildCharacterCards()),
-
               sectionHeading('Options'),
               buildCardList(extrasCards),
-
               sectionHeading('Extras'),
               buildCardList(overviewCards),
             ],
@@ -97,14 +101,19 @@ class _HomeState extends State<Home> {
 
   List<Widget> _buildCharacterCards() {
     return [
-      _gridCard('Status', _getStatus(status), status, Colors.green, 'status'),
-      _gridCard('Blocked Packets', Icons.error, '$blockedPackets', Colors.red, 'blocked'),
-      _gridCard('Speed', Icons.error, '$speed Mb/s', _getSpeedColor(40), 'speed'),
-      _gridCard('Latency', Icons.error, '$latency ms', _getLatencyColor(25), 'speed'),
+      _gridCard('Status', _getStatus(status), status, _getStatusColor(status),
+          'status'),
+      _gridCard('Blocked Packets', Icons.error, '$blockedPackets', Colors.red,
+          'blocked'),
+      _gridCard(
+          'Speed', Icons.error, '$speed Mb/s', _getSpeedColor(40), 'speed'),
+      _gridCard(
+          'Latency', Icons.error, '$latency ms', _getLatencyColor(25), 'speed'),
     ];
   }
 
-  Widget _gridCard(String title, IconData icon, String value, Color color, String route) {
+  Widget _gridCard(
+      String title, IconData icon, String value, Color color, String route) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -120,13 +129,15 @@ class _HomeState extends State<Home> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              IconButton(onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => _getRoute(route)),
-                );
-              }, 
-              icon: const Icon(Icons.arrow_forward_ios))],
+              IconButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => _getRoute(route)),
+                    );
+                  },
+                  icon: const Icon(Icons.arrow_forward_ios))
+            ],
           ),
         ),
       ],
@@ -135,6 +146,7 @@ class _HomeState extends State<Home> {
 
   IconData _getStatus(String status) {
     if (status == 'running') return Icons.task_alt;
+    if (status == 'error') return Icons.do_not_disturb_on;
     return Icons.error;
   }
 
@@ -148,6 +160,12 @@ class _HomeState extends State<Home> {
     if (latency > 100) return Colors.red;
     if (latency > 40) return Colors.orange;
     return Colors.green;
+  }
+
+  Color _getStatusColor(String status) {
+    if (status == 'running') return Colors.green;
+    if (status == 'error') return Colors.red;
+    return Colors.orange;
   }
 
   Widget _getRoute(String route) {

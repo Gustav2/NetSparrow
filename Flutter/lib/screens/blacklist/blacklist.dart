@@ -33,8 +33,7 @@ class _HomeState extends State<Blacklist> {
         myBlacklist = myBlacklistData;
       });
 
-    print("Blacklist: $blacklist");
-
+      print("Blacklist: $blacklist");
     } catch (e) {
       setState(() {
         print("Error: ${e.toString()}");
@@ -43,20 +42,20 @@ class _HomeState extends State<Blacklist> {
     }
   }
 
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const StyledTitle('My Blacklist'),
-        leading: IconButton(onPressed: fetchFirewallData, icon: const Icon(Icons.sync)),
+        leading: IconButton(
+            onPressed: fetchFirewallData, icon: const Icon(Icons.sync)),
         actions: [
           IconButton(
             onPressed: () {
               Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const EditBlacklist()),
-                );
+                context,
+                MaterialPageRoute(builder: (context) => const EditBlacklist()),
+              );
             },
             icon: const Icon(Icons.edit),
           ),
@@ -65,7 +64,8 @@ class _HomeState extends State<Blacklist> {
       body: LayoutBuilder(
         builder: (BuildContext context, BoxConstraints constraints) {
           return Container(
-            height: constraints.maxHeight, // Ensures the background fills the screen height
+            height: constraints
+                .maxHeight, // Ensures the background fills the screen height
             decoration: const BoxDecoration(
               gradient: LinearGradient(
                 colors: [
@@ -83,25 +83,26 @@ class _HomeState extends State<Blacklist> {
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: ConstrainedBox(
                 constraints: BoxConstraints(
-                  minHeight: constraints.maxHeight, // Ensures the content fills the screen height
+                  minHeight: constraints
+                      .maxHeight, // Ensures the content fills the screen height
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-
                     const SizedBox(height: 16),
-
                     Row(children: [Container()]),
-
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 8),
-                      child: myBlacklist.isEmpty ? const StyledHeading('The blacklist is empty') : const StyledHeading('Blocked IPs'),
+                      child: myBlacklist.isEmpty
+                          ? const StyledHeading('The blacklist is empty')
+                          : const StyledHeading('Blocked IPs'),
                     ),
-
                     ...blacklist.map((entry) {
                       String ifblocked = 'none';
                       for (var myentry in myBlacklist) {
-                        if (myentry['blacklist_entry__capturedpacket_entry__ip'] == entry['capturedpacket_entry__ip']) {
+                        if (myentry[
+                                'blacklist_entry__capturedpacket_entry__ip'] ==
+                            entry['capturedpacket_entry__ip']) {
                           ifblocked = 'blocked';
                           break;
                         }
@@ -118,21 +119,24 @@ class _HomeState extends State<Blacklist> {
                         return Container();
                       }
                     }).toList(),
-
-                    blacklist.every((entry) => myBlacklist.any((myentry) => myentry['blacklist_entry__capturedpacket_entry__ip'] == entry['capturedpacket_entry__ip']))
-                      ? const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 8),
-                        child: SizedBox(height: 16),
-                      )
-                      : const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 8),
-                        child: StyledHeading('Ignored IPs'),
-                      ),
-
+                    blacklist.every((entry) => myBlacklist.any((myentry) =>
+                            myentry[
+                                'blacklist_entry__capturedpacket_entry__ip'] ==
+                            entry['capturedpacket_entry__ip']))
+                        ? const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 8),
+                            child: SizedBox(height: 16),
+                          )
+                        : const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 8),
+                            child: StyledHeading('Ignored IPs'),
+                          ),
                     ...blacklist.map((entry) {
                       String ifblocked = 'none';
                       for (var myentry in myBlacklist) {
-                        if (myentry['blacklist_entry__capturedpacket_entry__ip'] == entry['capturedpacket_entry__ip']) {
+                        if (myentry[
+                                'blacklist_entry__capturedpacket_entry__ip'] ==
+                            entry['capturedpacket_entry__ip']) {
                           ifblocked = 'blocked';
                           break;
                         }
@@ -158,7 +162,6 @@ class _HomeState extends State<Blacklist> {
       ),
     );
   }
-
 
   Widget tableHeading(List titles) {
     return Padding(

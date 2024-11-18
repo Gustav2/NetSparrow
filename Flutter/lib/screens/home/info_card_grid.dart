@@ -8,7 +8,7 @@ class InfoCardGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
       child: SizedBox(
         height: (children.length / 2).ceil() * (165 + 4), // 165 is the height of each card, 16 is the spacing
         child: GridView.builder(

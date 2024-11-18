@@ -16,6 +16,7 @@ class _HomeState extends State<EditBlacklist> {
   List blacklist = [];
   List myBlacklist = [];
   String ifblocked = 'none';
+  bool loading = false;
   //Map changes = {"2.1.1.1":"https://www.youtube.com", "444.444.444.005":"http://445.dk"};
 
   @override
@@ -24,7 +25,47 @@ class _HomeState extends State<EditBlacklist> {
     fetchFirewallData();
   }
 
+  Future<void> setLoading(bool value) async {
+    setState(() {
+      loading = value;
+    });
+
+    if (loading) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          elevation: 0,
+          backgroundColor: Colors.transparent,
+          content: Container(
+            padding: EdgeInsets.all(16),
+            child: Center(
+                child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Colors.black12,
+                          blurRadius: 10,
+                          spreadRadius: 5,
+                          offset: Offset(0, 0),
+                        ),
+                      ],
+                    ),
+                    child: const CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.black),
+                    ))),
+          ),
+          duration: Duration(days: 1), // SnackBar will remain until dismissed
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    }
+  }
+
   Future<void> addAll() async {
+    await setLoading(true);
 
     for (var entry in blacklist) {
       String ip = entry['capturedpacket_entry__ip'] ?? 'Unknown IP';
@@ -41,18 +82,25 @@ class _HomeState extends State<EditBlacklist> {
           print('test3');
           await apiService.addToMyBlacklist(ip, url);
         }
-        fetchFirewallData();
       } catch (e) {
         print("Error adding to blacklist: $e");
-
       }
     }
+
+    await setLoading(false);
+
+    print('done');
+    fetchFirewallData();
   }
 
   Future<void> removeAll() async {
+    await setLoading(true);
+
     for (var entry in myBlacklist) {
-      String ip = entry['blacklist_entry__capturedpacket_entry__ip'] ?? 'Unknown IP';
-      String url = entry['blacklist_entry__capturedpacket_entry__url'] ?? 'No URL';
+      String ip =
+          entry['blacklist_entry__capturedpacket_entry__ip'] ?? 'Unknown IP';
+      String url =
+          entry['blacklist_entry__capturedpacket_entry__url'] ?? 'No URL';
 
       try {
         if (url == 'No URL') {
@@ -65,13 +113,15 @@ class _HomeState extends State<EditBlacklist> {
           print('test3');
           await apiService.removeFromMyBlacklist(ip, url);
         }
-        fetchFirewallData();
       } catch (e) {
         print("Error removing from blacklist: $e");
       }
     }
+
+    await setLoading(false);
+    print('done');
+    fetchFirewallData();
   }
-  
 
   Future<void> fetchFirewallData() async {
     try {
@@ -83,8 +133,7 @@ class _HomeState extends State<EditBlacklist> {
         myBlacklist = myBlacklistData;
       });
 
-    print("Blacklist: $blacklist");
-
+      print("Blacklist: $blacklist");
     } catch (e) {
       setState(() {
         print("Error: ${e.toString()}");
@@ -93,13 +142,13 @@ class _HomeState extends State<EditBlacklist> {
     }
   }
 
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const StyledTitle('Edit Blacklist'),
-        leading: IconButton(onPressed: fetchFirewallData, icon: const Icon(Icons.sync)),
+        leading: IconButton(
+            onPressed: fetchFirewallData, icon: const Icon(Icons.sync)),
         actions: [
           BlacklistMenu(addAll: addAll, removeAll: removeAll),
         ],
@@ -107,7 +156,8 @@ class _HomeState extends State<EditBlacklist> {
       body: LayoutBuilder(
         builder: (BuildContext context, BoxConstraints constraints) {
           return Container(
-            height: constraints.maxHeight, // Ensures the background fills the screen height
+            height: constraints
+                .maxHeight, // Ensures the background fills the screen height
             decoration: const BoxDecoration(
               gradient: LinearGradient(
                 colors: [
@@ -125,7 +175,8 @@ class _HomeState extends State<EditBlacklist> {
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: ConstrainedBox(
                 constraints: BoxConstraints(
-                  minHeight: constraints.maxHeight, // Ensures the content fills the screen height
+                  minHeight: constraints
+                      .maxHeight, // Ensures the content fills the screen height
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -139,7 +190,9 @@ class _HomeState extends State<EditBlacklist> {
                     ...blacklist.map((entry) {
                       String check = 'unchecked';
                       for (var myentry in myBlacklist) {
-                        if (myentry['blacklist_entry__capturedpacket_entry__ip'] == entry['capturedpacket_entry__ip']) {
+                        if (myentry[
+                                'blacklist_entry__capturedpacket_entry__ip'] ==
+                            entry['capturedpacket_entry__ip']) {
                           check = 'checked';
                           break;
                         }
@@ -161,7 +214,6 @@ class _HomeState extends State<EditBlacklist> {
     );
   }
 
-
   Widget tableHeading(List titles) {
     return Padding(
       padding: const EdgeInsets.all(16.0),
@@ -174,4 +226,3 @@ class _HomeState extends State<EditBlacklist> {
     );
   }
 }
-
