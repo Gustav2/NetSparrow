@@ -18,8 +18,8 @@ class BlacklistCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      color: state == 'blocked' ? const Color.fromARGB(255, 126, 126, 126).withOpacity(0.1) : Colors.white,
-      surfaceTintColor: state == 'blocked' ?  Colors.white : Colors.transparent,
+      color: state == 'none' ? const Color.fromARGB(255, 126, 126, 126).withOpacity(0.1) : Colors.white,
+      surfaceTintColor: state == 'none' ?  Colors.white : Colors.transparent,
       
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
@@ -42,9 +42,9 @@ class BlacklistCard extends StatelessWidget {
                   //   StyledText(ip),
                   //   const SizedBox(height: 8),
                   // ],
-                    StyledHeading(url),
+                    if (state == 'none') StyledGreyHeading(url) else StyledHeading(url),
                     const SizedBox(height: 8),
-                    StyledText(ip),
+                    if (state == 'none') StyledGreyText(ip) else StyledText(ip),
                     const SizedBox(height: 8),
                 ],
               ),
@@ -60,20 +60,27 @@ class BlacklistCard extends StatelessWidget {
 
   Future<void> addToBlacklist() async {
     if (url == 'No URL') {
+      print('test1');
       await apiService.addToMyBlacklist(ip, 'null');
-    } else {
-      await apiService.addToMyBlacklist(ip, url);
+    } else if (ip == 'Unknown IP') {
       print('test2');
+      await apiService.addToMyBlacklist('null', url);
+    } else {
+      print('test3');
+      await apiService.addToMyBlacklist(ip, url);
     }
   }
 
   Future<void> removeFromBlacklist() async{
     if (url == 'No URL') {
+      print('test4');
       await apiService.removeFromMyBlacklist(ip, 'null');
+    } else if (ip == 'Unknown IP') {
+      print('test5');
+      await apiService.removeFromMyBlacklist('null', url);
     } else {
+      print('test6');
       await apiService.removeFromMyBlacklist(ip, url);
-      print('test2');
     }
   }
 }
-

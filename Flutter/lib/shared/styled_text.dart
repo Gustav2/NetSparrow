@@ -11,6 +11,17 @@ class StyledText extends StatelessWidget {
   }
 }
 
+class StyledGreyText extends StatelessWidget {
+  const StyledGreyText(this.text, {super.key});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(text, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey));
+  }
+}
+
 class StyledHeading extends StatelessWidget {
   const StyledHeading(this.text, {super.key});
 
@@ -19,6 +30,17 @@ class StyledHeading extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Text(text, style: Theme.of(context).textTheme.headlineMedium);
+  }
+}
+
+class StyledGreyHeading extends StatelessWidget {
+  const StyledGreyHeading(this.text, {super.key});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(text, style: Theme.of(context).textTheme.headlineMedium?.copyWith(color: Colors.grey));
   }
 }
 

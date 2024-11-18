@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:my_app/models/blacklist_card.dart';
 import 'package:my_app/models/data_from_api.dart';
+import 'package:my_app/screens/blacklist/blacklist_menu_bar.dart';
 import 'package:my_app/shared/styled_text.dart';
 
 class EditBlacklist extends StatefulWidget {
@@ -15,7 +16,7 @@ class _HomeState extends State<EditBlacklist> {
   List blacklist = [];
   List myBlacklist = [];
   String ifblocked = 'none';
-  Map changes = {"2.1.1.1":"https://www.youtube.com", "444.444.444.005":"http://445.dk"};
+  //Map changes = {"2.1.1.1":"https://www.youtube.com", "444.444.444.005":"http://445.dk"};
 
   @override
   void initState() {
@@ -23,16 +24,54 @@ class _HomeState extends State<EditBlacklist> {
     fetchFirewallData();
   }
 
+  Future<void> addAll() async {
 
-  Future<void> apply() async {
-    try {
-      for (var entry in changes.entries) {
-        apiService.addToMyBlacklist(entry.key, entry.value);
+    for (var entry in blacklist) {
+      String ip = entry['capturedpacket_entry__ip'] ?? 'Unknown IP';
+      String url = entry['capturedpacket_entry__url'] ?? 'No URL';
+
+      try {
+        if (url == 'No URL') {
+          print('test1');
+          await apiService.addToMyBlacklist(ip, 'null');
+        } else if (ip == 'Unknown IP') {
+          print('test2');
+          await apiService.addToMyBlacklist('null', url);
+        } else {
+          print('test3');
+          await apiService.addToMyBlacklist(ip, url);
+        }
+        fetchFirewallData();
+      } catch (e) {
+        print("Error adding to blacklist: $e");
+
       }
-    } catch (e) {
-      print("Error fetching data: $e");
     }
   }
+
+  Future<void> removeAll() async {
+    for (var entry in myBlacklist) {
+      String ip = entry['blacklist_entry__capturedpacket_entry__ip'] ?? 'Unknown IP';
+      String url = entry['blacklist_entry__capturedpacket_entry__url'] ?? 'No URL';
+
+      try {
+        if (url == 'No URL') {
+          print('test1');
+          await apiService.removeFromMyBlacklist(ip, 'null');
+        } else if (ip == 'Unknown IP') {
+          print('test2');
+          await apiService.removeFromMyBlacklist('null', url);
+        } else {
+          print('test3');
+          await apiService.removeFromMyBlacklist(ip, url);
+        }
+        fetchFirewallData();
+      } catch (e) {
+        print("Error removing from blacklist: $e");
+      }
+    }
+  }
+  
 
   Future<void> fetchFirewallData() async {
     try {
@@ -60,7 +99,10 @@ class _HomeState extends State<EditBlacklist> {
     return Scaffold(
       appBar: AppBar(
         title: const StyledTitle('Edit Blacklist'),
-        leading: IconButton(onPressed: apply, icon: const Icon(Icons.sync)),
+        leading: IconButton(onPressed: fetchFirewallData, icon: const Icon(Icons.sync)),
+        actions: [
+          BlacklistMenu(addAll: addAll, removeAll: removeAll),
+        ],
       ),
       body: LayoutBuilder(
         builder: (BuildContext context, BoxConstraints constraints) {
@@ -89,6 +131,7 @@ class _HomeState extends State<EditBlacklist> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const SizedBox(height: 16),
+                    Row(children: [Container()]),
                     // const Padding(
                     //   padding: EdgeInsets.symmetric(vertical: 16),
                     //   child: StyledHeading('Currently Blocked IPs'),

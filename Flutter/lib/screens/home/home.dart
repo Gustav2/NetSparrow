@@ -20,8 +20,8 @@ class _HomeState extends State<Home> {
   int speed = 0;
   int latency = 0;
 
-  final List<String> overviewCards = ['Blacklist', 'Permissions', 'Parental controls', 'Support'];
-  final List<String> extrasCards = ['Blacklist', 'Permissions', 'Parental controls', 'Support'];
+  final List<String> overviewCards = ['Option 1', 'Option 2', 'Option 3', 'Option 4'];
+  final List<String> extrasCards = ['Blacklist', 'Settings', 'Log', 'Support'];
 
   @override
   void initState() {

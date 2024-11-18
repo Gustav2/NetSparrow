@@ -66,4 +66,30 @@ ThemeData primaryTheme = ThemeData(
       shape: const RoundedRectangleBorder(),
       shadowColor: Colors.transparent,
       margin: const EdgeInsets.only(bottom: 16)),
+
+  // popup menu theme
+  popupMenuTheme: PopupMenuThemeData(
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.all(Radius.circular(8)),
+    ),
+    surfaceTintColor: Colors.transparent,
+    color: AppColors.secondaryColor,
+    textStyle: TextStyle(
+      color: AppColors.textColor,
+      fontSize: 14,
+      letterSpacing: 1,
+    ),
+  ),
+
+  textButtonTheme: TextButtonThemeData(
+    style: ButtonStyle(
+      foregroundColor: WidgetStateProperty.all(AppColors.textColor),
+      backgroundColor: WidgetStateProperty.all(AppColors.secondaryColor),
+      shape: WidgetStateProperty.all(
+        RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(4),
+        ),
+      ),
+    ),
+  )
 );

@@ -88,11 +88,16 @@ class _HomeState extends State<Blacklist> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+
                     const SizedBox(height: 16),
-                    // const Padding(
-                    //   padding: EdgeInsets.symmetric(vertical: 16),
-                    //   child: StyledHeading('Currently Blocked IPs'),
-                    // ),
+
+                    Row(children: [Container()]),
+
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: myBlacklist.isEmpty ? const StyledHeading('The blacklist is empty') : const StyledHeading('Blocked IPs'),
+                    ),
+
                     ...blacklist.map((entry) {
                       String ifblocked = 'none';
                       for (var myentry in myBlacklist) {
@@ -101,12 +106,48 @@ class _HomeState extends State<Blacklist> {
                           break;
                         }
                       }
-                      return BlacklistCard(
-                        entry['capturedpacket_entry__ip'] ?? 'Unknown IP',
-                        entry['capturedpacket_entry__url'] ?? 'No URL',
-                        ifblocked,
-                        fetch: fetchFirewallData,
-                      );
+
+                      if (ifblocked == 'blocked') {
+                        return BlacklistCard(
+                          entry['capturedpacket_entry__ip'] ?? 'Unknown IP',
+                          entry['capturedpacket_entry__url'] ?? 'No URL',
+                          ifblocked,
+                          fetch: fetchFirewallData,
+                        );
+                      } else {
+                        return Container();
+                      }
+                    }).toList(),
+
+                    blacklist.every((entry) => myBlacklist.any((myentry) => myentry['blacklist_entry__capturedpacket_entry__ip'] == entry['capturedpacket_entry__ip']))
+                      ? const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 8),
+                        child: SizedBox(height: 16),
+                      )
+                      : const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 8),
+                        child: StyledHeading('Ignored IPs'),
+                      ),
+
+                    ...blacklist.map((entry) {
+                      String ifblocked = 'none';
+                      for (var myentry in myBlacklist) {
+                        if (myentry['blacklist_entry__capturedpacket_entry__ip'] == entry['capturedpacket_entry__ip']) {
+                          ifblocked = 'blocked';
+                          break;
+                        }
+                      }
+
+                      if (ifblocked == 'none') {
+                        return BlacklistCard(
+                          entry['capturedpacket_entry__ip'] ?? 'Unknown IP',
+                          entry['capturedpacket_entry__url'] ?? 'No URL',
+                          ifblocked,
+                          fetch: fetchFirewallData,
+                        );
+                      } else {
+                        return Container();
+                      }
                     }).toList(),
                   ],
                 ),

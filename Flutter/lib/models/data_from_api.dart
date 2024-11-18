@@ -193,7 +193,7 @@ class ApiService {
         'Content-Type': 'application/json',
       },
       body: jsonEncode({
-        'ip': ip,
+        'ip': ip == 'null' ? null : ip,
         'url': url == 'null' ? null : url,
       }),
     );
