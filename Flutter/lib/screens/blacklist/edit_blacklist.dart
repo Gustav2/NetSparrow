@@ -17,6 +17,7 @@ class _HomeState extends State<EditBlacklist> {
   List myBlacklist = [];
   String ifblocked = 'none';
   bool loading = false;
+  String filter = '';
   //Map changes = {"2.1.1.1":"https://www.youtube.com", "444.444.444.005":"http://445.dk"};
 
   @override
@@ -142,6 +143,30 @@ class _HomeState extends State<EditBlacklist> {
     }
   }
 
+  List<Widget> displayCards(String filter) {
+    return blacklist.where((entry) {
+      String ip = entry['capturedpacket_entry__ip'] ?? 'Unknown IP';
+      String url = entry['capturedpacket_entry__url'] ?? 'No URL';
+      return ip.contains(filter) || url.contains(filter);
+    }).map((entry) {
+      String check = 'unchecked';
+      for (var myentry in myBlacklist) {
+        if (myentry['blacklist_entry__capturedpacket_entry__ip'] ==
+            entry['capturedpacket_entry__ip']) {
+          check = 'checked';
+          break;
+        }
+      }
+
+      return BlacklistCard(
+        entry['capturedpacket_entry__ip'] ?? 'Unknown IP',
+        entry['capturedpacket_entry__url'] ?? 'No URL',
+        check,
+        fetch: fetchFirewallData,
+      );
+    }).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -187,23 +212,40 @@ class _HomeState extends State<EditBlacklist> {
                     //   padding: EdgeInsets.symmetric(vertical: 16),
                     //   child: StyledHeading('Currently Blocked IPs'),
                     // ),
-                    ...blacklist.map((entry) {
-                      String check = 'unchecked';
-                      for (var myentry in myBlacklist) {
-                        if (myentry[
-                                'blacklist_entry__capturedpacket_entry__ip'] ==
-                            entry['capturedpacket_entry__ip']) {
-                          check = 'checked';
-                          break;
-                        }
-                      }
-                      return BlacklistCard(
-                        entry['capturedpacket_entry__ip'] ?? 'Unknown IP',
-                        entry['capturedpacket_entry__url'] ?? 'No URL',
-                        check,
-                        fetch: fetchFirewallData,
-                      );
-                    }).toList(),
+
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 16, left: 16, right: 16),
+                      child: SearchBar(
+                        surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
+                        backgroundColor: const WidgetStatePropertyAll(Colors.white),
+                        hintText: 'Search for IP or URL',
+                        onChanged: (value) {
+                          setState(() {
+                            filter = value;
+                          });
+                        },
+                      ),
+                    ),
+
+                    ...displayCards(filter),
+
+                    // ...blacklist.map((entry) {
+                    //   String check = 'unchecked';
+                    //   for (var myentry in myBlacklist) {
+                    //     if (myentry[
+                    //             'blacklist_entry__capturedpacket_entry__ip'] ==
+                    //         entry['capturedpacket_entry__ip']) {
+                    //       check = 'checked';
+                    //       break;
+                    //     }
+                    //   }
+                    //   return BlacklistCard(
+                    //     entry['capturedpacket_entry__ip'] ?? 'Unknown IP',
+                    //     entry['capturedpacket_entry__url'] ?? 'No URL',
+                    //     check,
+                    //     fetch: fetchFirewallData,
+                    //   );
+                    // }).toList(),
                   ],
                 ),
               ),
