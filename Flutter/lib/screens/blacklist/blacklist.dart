@@ -16,6 +16,7 @@ class _HomeState extends State<Blacklist> {
   List blacklist = [];
   List myBlacklist = [];
   String ifblocked = 'none';
+  bool loading = false;
 
   @override
   void initState() {
@@ -23,7 +24,48 @@ class _HomeState extends State<Blacklist> {
     fetchFirewallData();
   }
 
+
+  Future<void> setLoading(bool value) async {
+    setState(() {
+      loading = value;
+    });
+
+    if (loading) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          elevation: 0,
+          backgroundColor: Colors.transparent,
+          content: Container(
+            padding: EdgeInsets.all(16),
+            child: Center(
+                child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Colors.black12,
+                          blurRadius: 10,
+                          spreadRadius: 5,
+                          offset: Offset(0, 0),
+                        ),
+                      ],
+                    ),
+                    child: const CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.black),
+                    ))),
+          ),
+          duration: Duration(days: 1), // SnackBar will remain until dismissed
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    }
+  }
+
   Future<void> fetchFirewallData() async {
+
     try {
       final blacklistData = await apiService.getBlacklist();
       final myBlacklistData = await apiService.getMyBlacklist();
@@ -40,6 +82,7 @@ class _HomeState extends State<Blacklist> {
       });
       print("Error fetching data: $e");
     }
+
   }
 
   @override

@@ -91,5 +91,13 @@ ThemeData primaryTheme = ThemeData(
         ),
       ),
     ),
-  )
+  ),
+
+  checkboxTheme: CheckboxThemeData(
+    fillColor: WidgetStateProperty.all(AppColors.secondaryColor),
+    checkColor: WidgetStateProperty.all(AppColors.textColor),
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(4),
+    ),
+  ),
 );

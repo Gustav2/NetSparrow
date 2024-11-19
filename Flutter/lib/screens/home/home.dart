@@ -20,13 +20,13 @@ class _HomeState extends State<Home> {
   int speed = 0;
   int latency = 0;
 
-  final List<String> overviewCards = [
+  final List<String> secondSectionCards = [
     'Option 1',
     'Option 2',
     'Option 3',
     'Option 4'
   ];
-  final List<String> extrasCards = ['Blacklist', 'Settings', 'Log', 'Support'];
+  final List<String> firstSectionCards = ['Blacklist', 'Settings', 'Log', 'Support'];
 
   @override
   void initState() {
@@ -87,11 +87,11 @@ class _HomeState extends State<Home> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               sectionHeading('Overview'),
-              InfoCardGrid(_buildCharacterCards()),
+              InfoCardGrid(_buildInfoCards()),
               sectionHeading('Options'),
-              buildCardList(extrasCards),
+              buildCardList(firstSectionCards),
               sectionHeading('Extras'),
-              buildCardList(overviewCards),
+              buildCardList(secondSectionCards),
             ],
           ),
         ),
@@ -99,7 +99,7 @@ class _HomeState extends State<Home> {
     );
   }
 
-  List<Widget> _buildCharacterCards() {
+  List<Widget> _buildInfoCards() {
     return [
       _gridCard('Status', _getStatus(status), status, _getStatusColor(status),
           'status'),

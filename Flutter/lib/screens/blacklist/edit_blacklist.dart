@@ -18,7 +18,6 @@ class _HomeState extends State<EditBlacklist> {
   String ifblocked = 'none';
   bool loading = false;
   String filter = '';
-  //Map changes = {"2.1.1.1":"https://www.youtube.com", "444.444.444.005":"http://445.dk"};
 
   @override
   void initState() {
@@ -145,8 +144,10 @@ class _HomeState extends State<EditBlacklist> {
 
   List<Widget> displayCards(String filter) {
     return blacklist.where((entry) {
-      String ip = entry['capturedpacket_entry__ip'] ?? 'Unknown IP';
-      String url = entry['capturedpacket_entry__url'] ?? 'No URL';
+      String ip =
+          (entry['capturedpacket_entry__ip'] ?? 'Unknown IP').toLowerCase();
+      String url =
+          (entry['capturedpacket_entry__url'] ?? 'No URL').toLowerCase();
       return ip.contains(filter) || url.contains(filter);
     }).map((entry) {
       String check = 'unchecked';
@@ -181,8 +182,7 @@ class _HomeState extends State<EditBlacklist> {
       body: LayoutBuilder(
         builder: (BuildContext context, BoxConstraints constraints) {
           return Container(
-            height: constraints
-                .maxHeight, // Ensures the background fills the screen height
+            height: constraints.maxHeight,
             decoration: const BoxDecoration(
               gradient: LinearGradient(
                 colors: [
@@ -200,52 +200,30 @@ class _HomeState extends State<EditBlacklist> {
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: ConstrainedBox(
                 constraints: BoxConstraints(
-                  minHeight: constraints
-                      .maxHeight, // Ensures the content fills the screen height
+                  minHeight: constraints.maxHeight,
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const SizedBox(height: 16),
                     Row(children: [Container()]),
-                    // const Padding(
-                    //   padding: EdgeInsets.symmetric(vertical: 16),
-                    //   child: StyledHeading('Currently Blocked IPs'),
-                    // ),
-
                     Padding(
-                      padding: const EdgeInsets.only(bottom: 16, left: 16, right: 16),
+                      padding: const EdgeInsets.only(
+                          bottom: 16, left: 16, right: 16),
                       child: SearchBar(
-                        surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
-                        backgroundColor: const WidgetStatePropertyAll(Colors.white),
+                        surfaceTintColor:
+                            const WidgetStatePropertyAll(Colors.transparent),
+                        backgroundColor:
+                            const WidgetStatePropertyAll(Colors.white),
                         hintText: 'Search for IP or URL',
                         onChanged: (value) {
                           setState(() {
-                            filter = value;
+                            filter = value.toLowerCase();
                           });
                         },
                       ),
                     ),
-
                     ...displayCards(filter),
-
-                    // ...blacklist.map((entry) {
-                    //   String check = 'unchecked';
-                    //   for (var myentry in myBlacklist) {
-                    //     if (myentry[
-                    //             'blacklist_entry__capturedpacket_entry__ip'] ==
-                    //         entry['capturedpacket_entry__ip']) {
-                    //       check = 'checked';
-                    //       break;
-                    //     }
-                    //   }
-                    //   return BlacklistCard(
-                    //     entry['capturedpacket_entry__ip'] ?? 'Unknown IP',
-                    //     entry['capturedpacket_entry__url'] ?? 'No URL',
-                    //     check,
-                    //     fetch: fetchFirewallData,
-                    //   );
-                    // }).toList(),
                   ],
                 ),
               ),

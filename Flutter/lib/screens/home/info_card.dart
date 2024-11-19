@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:my_app/screens/blacklist/blacklist.dart';
 import 'package:my_app/screens/log/log.dart';
+import 'package:my_app/screens/settings/Settngs.dart';
 import 'package:my_app/theme.dart';
 
 class InfoCard extends StatelessWidget {
@@ -42,6 +43,7 @@ class InfoCard extends StatelessWidget {
 
   Widget _getRoute(String route) {
     if (route == 'Blacklist') return const Blacklist();
+    if (route == 'Settings') return const Settings();
     return const Log();
   }
 }
