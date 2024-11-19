@@ -210,6 +210,41 @@ void *monitor_blacklist(void *arg) {
     return NULL;
 }
 
+// Function to log packet data to a CSV file
+void packet_to_ml(const u_char *packet, int packet_len) {
+    static FILE *csv_file = NULL;
+
+    // Open the CSV file on the first call
+    if (csv_file == NULL) {
+        csv_file = fopen("packet_data.csv", "w");
+        if (!csv_file) {
+            perror("Error opening CSV file");
+            return;
+        }
+
+        // Write CSV header
+        fprintf(csv_file, "Source IP,Destination IP,Protocol,Packet Length\n");
+    }
+
+    // Parse IP header
+    struct ip *ip_hdr = (struct ip *)(packet + 14); // Skip Ethernet header
+
+    char src_ip[IP_STR_LEN], dst_ip[IP_STR_LEN];
+    inet_ntop(AF_INET, &(ip_hdr->ip_src), src_ip, IP_STR_LEN);
+    inet_ntop(AF_INET, &(ip_hdr->ip_dst), dst_ip, IP_STR_LEN);
+
+    // Determine protocol
+    const char *protocol = (ip_hdr->ip_p == IPPROTO_TCP) ? "TCP" :
+                           (ip_hdr->ip_p == IPPROTO_UDP) ? "UDP" :
+                           (ip_hdr->ip_p == IPPROTO_ICMP) ? "ICMP" : "Other";
+
+    // Write packet data to CSV
+    fprintf(csv_file, "%s,%s,%s,%d\n", src_ip, dst_ip, protocol, packet_len);
+
+    // Flush the file to ensure data is saved
+    fflush(csv_file);
+}
+
 // Forward packets between interfaces with blacklist filtering
 void *forward_packets(void *args) {
     forwarder_args_t *forward_args = (forwarder_args_t *)args;
@@ -240,7 +275,10 @@ void *forward_packets(void *args) {
             fflush(log_file);
             //continue; // Skip forwarding
         }
-
+        // Log a percentage of packets to CSV
+        if (rand() % 10 == 0) { // Log ~10% of packets
+            packet_to_ml(packet, header.len);
+        }
         // Forward the packet
         if (pcap_sendpacket(dest_handle, packet, header.len) != 0) {
             fprintf(log_file, "Error sending packet: %s\n", pcap_geterr(dest_handle));
