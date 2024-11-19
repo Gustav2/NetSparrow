@@ -15,6 +15,8 @@
 #include <sys/mman.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <sys/stat.h>
+#include <time.h>
 
 #define SNAP_LEN 1518
 #define ERRBUF_SIZE 256
@@ -28,11 +30,20 @@ typedef struct {
     int mtu;
 } forwarder_args_t;
 
+typedef struct {
+    char filename[256];
+    time_t last_modified;
+} file_monitor_t;
+
 char blacklist[BLACKLIST_MAX][IP_STR_LEN];
 int blacklist_count = 0;
 volatile int keep_running = 1;
 
 FILE *log_file; // Global log file pointer
+
+// Mutex for the blacklist
+pthread_mutex_t blacklist_mutex = PTHREAD_MUTEX_INITIALIZER;
+file_monitor_t blacklist_monitor;
 
 // Function to calculate checksum
 unsigned short checksum(void *b, int len) {
@@ -129,7 +140,40 @@ void handle_signal(int signal) {
     keep_running = 0;
 }
 
-// Load blacklist file into memory
+// Get file modification time
+time_t get_file_mtime(const char *filename) {
+    struct stat st;
+    if (stat(filename, &st) != 0) {
+        return 0;
+    }
+    return st.st_mtime;
+}
+
+// Check if file has been modified
+int file_has_changed(file_monitor_t *monitor) {
+    time_t current_mtime = get_file_mtime(monitor->filename);
+    if (current_mtime > monitor->last_modified) {
+        monitor->last_modified = current_mtime;
+        return 1;
+    }
+    return 0;
+}
+
+// Function to load blacklist entries from file
+void load_blacklist_entries(FILE *file) {
+    char ip[IP_STR_LEN];
+    blacklist_count = 0;  // Reset count
+
+    while (fgets(ip, sizeof(ip), file) && blacklist_count < BLACKLIST_MAX) {
+        ip[strcspn(ip, "\n")] = '\0'; // Remove trailing newline
+        strncpy(blacklist[blacklist_count++], ip, IP_STR_LEN);
+    }
+
+    fprintf(log_file, "Loaded %d IPs into blacklist\n", blacklist_count);
+    fflush(log_file);
+}
+
+// Initial load of blacklist file
 void load_blacklist(const char *filename) {
     FILE *file = fopen(filename, "r");
     if (!file) {
@@ -137,24 +181,47 @@ void load_blacklist(const char *filename) {
         exit(EXIT_FAILURE);
     }
 
-    char ip[IP_STR_LEN];
-    while (fgets(ip, sizeof(ip), file) && blacklist_count < BLACKLIST_MAX) {
-        ip[strcspn(ip, "\n")] = '\0'; // Remove trailing newline
-        strncpy(blacklist[blacklist_count++], ip, IP_STR_LEN);
-    }
+    pthread_mutex_lock(&blacklist_mutex);
+    load_blacklist_entries(file);
+    pthread_mutex_unlock(&blacklist_mutex);
 
     fclose(file);
-    fprintf(log_file, "Loaded %d IPs into blacklist\n", blacklist_count);
+}
+
+// Check and reload blacklist if modified
+void check_and_reload_blacklist() {
+    if (file_has_changed(&blacklist_monitor)) {
+        FILE *file = fopen(blacklist_monitor.filename, "r");
+        if (file) {
+            pthread_mutex_lock(&blacklist_mutex);
+            load_blacklist_entries(file);
+            pthread_mutex_unlock(&blacklist_mutex);
+            fclose(file);
+        }
+    }
+}
+
+// Monitor thread function
+void *monitor_blacklist(void *arg) {
+    while (keep_running) {
+        check_and_reload_blacklist();
+        sleep(1); // Check every second
+    }
+    return NULL;
 }
 
 // Check if an IP is blacklisted
 int is_blacklisted(const char *ip) {
+    int result = 0;
+    pthread_mutex_lock(&blacklist_mutex);
     for (int i = 0; i < blacklist_count; i++) {
         if (strcmp(ip, blacklist[i]) == 0) {
-            return 1;
+            result = 1;
+            break;
         }
     }
-    return 0;
+    pthread_mutex_unlock(&blacklist_mutex);
+    return result;
 }
 
 // Forward packets between interfaces with blacklist filtering

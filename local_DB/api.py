@@ -64,7 +64,7 @@ def pullCentral(token):
     for i in blacklist_data:
         ip = str(i["blacklist_entry__capturedpacket_entry__ip"])
         url = str(i["blacklist_entry__capturedpacket_entry__url"])
-        v.set(ip, url)
+        v.set(ip, url)  #sets ip and url in valkey db
 
 
 # Function to push local DB to central DB
