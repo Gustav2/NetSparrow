@@ -108,7 +108,7 @@ int main(int argc, char const *argv[]) {
   // Set the device for packet capture
   char *device = "wlo1";
   char error_buffer[PCAP_ERRBUF_SIZE];
-  int packets_count = 10; // Limit to 10 packets
+  int packets_count = -1; // Limit to 10 packets
 
   // Open the CSV output file
   output_file = fopen("packet_capture.csv", "w");

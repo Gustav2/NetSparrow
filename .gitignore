@@ -169,7 +169,7 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
+# lib/ Har fjernet denne så den uploader flutter koden til github
 lib64/
 parts/
 sdist/
