@@ -1,0 +1,25 @@
+services:
+  packet-forwarder:
+    build:
+      context: ./forwarder
+    container_name: packet_forwarder
+    privileged: true  # Required to access the network interfaces
+    network_mode: host  # To allow direct access to host's network interfaces
+    environment:
+      - INTERFACE1=eth1
+      - INTERFACE2=eth2
+    volumes:
+      - /sys/class/net:/sys/class/net:ro  # To access interface details
+      - /usr/bin/ethtool:/usr/bin/ethtool:ro  # For interface optimization
+      - shared-data:/shared
+
+  pyscript:
+    build:
+      context: ./pyscript
+    container_name: pyscript
+    volumes:
+      - shared-data:/shared
+
+volumes:
+  shared-data:
+    driver: local
