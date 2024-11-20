@@ -5,7 +5,7 @@ from pydantic import BaseModel
 import uvicorn
 import time
 
-centralToken = "Token 71c08c598319cded9587ff36b0069226fd0565a1"
+centralToken = "Token f990deebf6b6f888560a4b2bc131989496a55030"
 
 tempSettings = {
     "mlPercentage": 100,
