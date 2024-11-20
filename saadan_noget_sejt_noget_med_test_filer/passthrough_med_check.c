@@ -262,7 +262,6 @@ void *forward_packets(void *args) {
             ssize_t bytes_written = write(pipe_fd, &packet, sizeof(packet_data));
             if (bytes_written == -1) {
             perror("Error writing to pipe");
-            printf("Packet written to pipe\n");
             break;
             
 
