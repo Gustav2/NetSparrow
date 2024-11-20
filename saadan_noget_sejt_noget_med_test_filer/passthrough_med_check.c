@@ -237,7 +237,7 @@ void *forward_packets(void *args) {
         if (packet == NULL) {
             continue; // Handle packet read error or timeout
         }
-
+       
         // Parse IP header
         struct ip *ip_hdr = (struct ip *)(packet + 14); // Skip Ethernet header
         char src_ip[IP_STR_LEN], dst_ip[IP_STR_LEN];
@@ -260,18 +260,17 @@ void *forward_packets(void *args) {
             if (bytes_written == -1) {
             perror("Error writing to pipe");
             break;
+            
+
+        };
         }
-    }
-    
-    close(pipe_fd);
-    unlink(PIPE_NAME);
         // Forward the packet
         if (pcap_sendpacket(dest_handle, packet, header.len) != 0) {
             fprintf(log_file, "Error sending packet: %s\n", pcap_geterr(dest_handle));
             fflush(log_file);
         }
     }
-
+        
     return NULL;
 }
 
@@ -285,17 +284,7 @@ int get_interface_mtu(const char *interface_name) {
         return -1;
     }
 
-    strncpy(ifr.ifr_name, interface_name // Create named pipe
-    mkfifo(PIPE_NAME, 0666);
-    
-    // Open pipe for writing
-    int pipe_fd = open(PIPE_NAME, O_WRONLY);
-    if (pipe_fd == -1) {
-        perror("Error opening pipe");
-        return 1;
-    }
-    
-    packet_data packet;, IFNAMSIZ - 1);
+    strncpy(ifr.ifr_name, interface_name, IFNAMSIZ - 1);
     if (ioctl(sockfd, SIOCGIFMTU, &ifr) == -1) {
         fprintf(log_file, "IOCTL error\n");
         fflush(log_file);
@@ -339,7 +328,15 @@ int main(int argc, char *argv[]) {
         perror("Error opening log file");
         exit(EXIT_FAILURE);
     }
-
+     // Create named pipe
+        mkfifo(PIPE_NAME, 0666);
+    
+        // Open pipe for writing
+        int pipe_fd = open(PIPE_NAME, O_WRONLY);
+        if (pipe_fd == -1) {
+        perror("Error opening pipe");
+        return 1;
+        }
     // Get initial modification time
     last_modified_time = get_file_modification_time(blacklist_file_path);
 
@@ -371,17 +368,7 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "Error creating capture handles: %s\n", errbuf);
         exit(EXIT_FAILURE);
     }
-    // Create named pipe
-    mkfifo(PIPE_NAME, 0666);
-    
-    // Open pipe for writing
-    int pipe_fd = open(PIPE_NAME, O_WRONLY);
-    if (pipe_fd == -1) {
-        perror("Error opening pipe");
-        return 1;
-    }
-    
-    packet_data packet;
+
     // Configure capture settings for high performance
     pcap_t *handles[] = {handle1, handle2};
     for (size_t i = 0; i < 2; i++) {
