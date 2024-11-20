@@ -17,31 +17,18 @@
 #include <netinet/in.h>
 #include <sys/stat.h>
 #include <time.h>
-#include <fcntl.h>
-#include <sys/types.h>
 
 #define SNAP_LEN 1518
 #define ERRBUF_SIZE 256
 #define BLACKLIST_MAX 2048
 #define IP_STR_LEN 16
 #define BATCH_SIZE 32
-#define PIPE_NAME "/tmp/packet_pipe"
-#define BUFFER_SIZE 4096
 
 typedef struct {
     pcap_t *source_handle;
     pcap_t *dest_handle;
     int mtu;
 } forwarder_args_t;
-
-typedef struct {
-    unsigned long timestamp;
-    unsigned char source_ip[4];
-    unsigned char dest_ip[4];
-    unsigned short packet_size;
-    unsigned char protocol;
-    unsigned char data[1500];  // Assuming standard MTU
-} packet_data;
 
 char *blacklist_file_path;
 pthread_mutex_t blacklist_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -223,6 +210,41 @@ void *monitor_blacklist(void *arg) {
     return NULL;
 }
 
+// Function to log packet data to a CSV file
+void packet_to_ml(const u_char *packet, int packet_len) {
+    static FILE *csv_file = NULL;
+
+    // Open the CSV file on the first call
+    if (csv_file == NULL) {
+        csv_file = fopen("packet_data.csv", "w");
+        if (!csv_file) {
+            perror("Error opening CSV file");
+            return;
+        }
+
+        // Write CSV header
+        fprintf(csv_file, "Source IP,Destination IP,Protocol,Packet Length\n");
+    }
+
+    // Parse IP header
+    struct ip *ip_hdr = (struct ip *)(packet + 14); // Skip Ethernet header
+
+    char src_ip[IP_STR_LEN], dst_ip[IP_STR_LEN];
+    inet_ntop(AF_INET, &(ip_hdr->ip_src), src_ip, IP_STR_LEN);
+    inet_ntop(AF_INET, &(ip_hdr->ip_dst), dst_ip, IP_STR_LEN);
+
+    // Determine protocol
+    const char *protocol = (ip_hdr->ip_p == IPPROTO_TCP) ? "TCP" :
+                           (ip_hdr->ip_p == IPPROTO_UDP) ? "UDP" :
+                           (ip_hdr->ip_p == IPPROTO_ICMP) ? "ICMP" : "Other";
+
+    // Write packet data to CSV
+    fprintf(csv_file, "%s,%s,%s,%d\n", src_ip, dst_ip, protocol, packet_len);
+
+    // Flush the file to ensure data is saved
+    fflush(csv_file);
+}
+
 // Forward packets between interfaces with blacklist filtering
 void *forward_packets(void *args) {
     forwarder_args_t *forward_args = (forwarder_args_t *)args;
@@ -255,16 +277,8 @@ void *forward_packets(void *args) {
         }
         // Log a percentage of packets to CSV
         if (rand() % 10 == 0) { // Log ~10% of packets
-            // Write packet to pipe
-            ssize_t bytes_written = write(pipe_fd, &packet, sizeof(packet_data));
-            if (bytes_written == -1) {
-            perror("Error writing to pipe");
-            break;
+            packet_to_ml(packet, header.len);
         }
-    }
-    
-    close(pipe_fd);
-    unlink(PIPE_NAME);
         // Forward the packet
         if (pcap_sendpacket(dest_handle, packet, header.len) != 0) {
             fprintf(log_file, "Error sending packet: %s\n", pcap_geterr(dest_handle));
@@ -285,17 +299,7 @@ int get_interface_mtu(const char *interface_name) {
         return -1;
     }
 
-    strncpy(ifr.ifr_name, interface_name // Create named pipe
-    mkfifo(PIPE_NAME, 0666);
-    
-    // Open pipe for writing
-    int pipe_fd = open(PIPE_NAME, O_WRONLY);
-    if (pipe_fd == -1) {
-        perror("Error opening pipe");
-        return 1;
-    }
-    
-    packet_data packet;, IFNAMSIZ - 1);
+    strncpy(ifr.ifr_name, interface_name, IFNAMSIZ - 1);
     if (ioctl(sockfd, SIOCGIFMTU, &ifr) == -1) {
         fprintf(log_file, "IOCTL error\n");
         fflush(log_file);
@@ -371,17 +375,7 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "Error creating capture handles: %s\n", errbuf);
         exit(EXIT_FAILURE);
     }
-    // Create named pipe
-    mkfifo(PIPE_NAME, 0666);
-    
-    // Open pipe for writing
-    int pipe_fd = open(PIPE_NAME, O_WRONLY);
-    if (pipe_fd == -1) {
-        perror("Error opening pipe");
-        return 1;
-    }
-    
-    packet_data packet;
+
     // Configure capture settings for high performance
     pcap_t *handles[] = {handle1, handle2};
     for (size_t i = 0; i < 2; i++) {
