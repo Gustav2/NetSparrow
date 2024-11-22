@@ -31,10 +31,8 @@ class LogCard extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Container(
-                //color: AppColors.primaryColor,
                 padding: const EdgeInsets.all(8),
                 child: StyledText(timestamp)),
-              //const Expanded(child: SizedBox()),
               Text('$speed Mb/s'),
               Text('$latency ms'),
             ],

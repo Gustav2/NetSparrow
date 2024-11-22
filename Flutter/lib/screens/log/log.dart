@@ -62,7 +62,7 @@ Widget build(BuildContext context) {
     body: LayoutBuilder(
       builder: (BuildContext context, BoxConstraints constraints) {
         return Container(
-          height: constraints.maxHeight, // Sets minimum height to screen height
+          height: constraints.maxHeight,
           decoration: const BoxDecoration(
             gradient: LinearGradient(
               colors: [
@@ -80,7 +80,7 @@ Widget build(BuildContext context) {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: ConstrainedBox(
               constraints: BoxConstraints(
-                minHeight: constraints.maxHeight, // Sets minHeight to screen height
+                minHeight: constraints.maxHeight,
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,

@@ -36,12 +36,6 @@ class BlacklistCard extends StatelessWidget {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // if (state == 'none') ...[
-                  //   StyledHeading(url),
-                  //   const SizedBox(height: 8),
-                  //   StyledText(ip),
-                  //   const SizedBox(height: 8),
-                  // ],
                     if (state == 'none') StyledGreyHeading(url) else StyledHeading(url),
                     const SizedBox(height: 8),
                     if (state == 'none') StyledGreyText(ip) else StyledText(ip),

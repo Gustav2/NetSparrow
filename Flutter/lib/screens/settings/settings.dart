@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:my_app/shared/styled_text.dart';
 import 'package:collection/collection.dart';
+import 'package:my_app/theme.dart';
 
 
 class Settings extends StatefulWidget {
@@ -41,7 +42,6 @@ class _SettingsState extends State<Settings> {
   void initState() {
     super.initState();
 
-    // Store initial states
     initialGeneral = Map.from(general);
     initialAdvanced = Map.from(advanced);
     initialExperimental = Map.from(experimental);
@@ -67,25 +67,33 @@ class _SettingsState extends State<Settings> {
       changesMade = true;
     });
 
-    // Show a snack bar only if there are changes
     if (changesMade && !snackbarShown) {
       snackbarShown = true;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: TextButton(
-            onPressed: () {
-              // Apply the changes and update initial values
-              setState(() {
-                initialGeneral = Map.from(general);
-                initialAdvanced = Map.from(advanced);
-                initialExperimental = Map.from(experimental);
-                changesMade = false;  // Reset the changesMade flag
-              });
-
-              ScaffoldMessenger.of(context).hideCurrentSnackBar();
-              snackbarShown = false;
-            },
-            child: const Text('Apply changes'),
+          elevation: 0,
+          backgroundColor: Colors.transparent,
+          content: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              TextButton(
+                style: ButtonStyle(
+                  backgroundColor:WidgetStateProperty.all(AppColors.primaryColor),
+                ),
+                onPressed: () {
+                  setState(() {
+                    initialGeneral = Map.from(general);
+                    initialAdvanced = Map.from(advanced);
+                    initialExperimental = Map.from(experimental);
+                    changesMade = false;
+                  });
+              
+                  ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                  snackbarShown = false;
+                },
+                child: const Text('Apply changes'),
+              ),
+            ],
           ),
           duration: const Duration(days: 1),
         ),
@@ -94,7 +102,6 @@ class _SettingsState extends State<Settings> {
   }
 
   Future<void> fetch() async {
-    // Show snackbar only if there are changes
     showSnackBar();
   }
 
@@ -108,7 +115,7 @@ class _SettingsState extends State<Settings> {
         builder: (BuildContext context, BoxConstraints constraints) {
           return Container(
             height: constraints
-                .maxHeight, // Ensures the background fills the screen height
+                .maxHeight,
             decoration: const BoxDecoration(
               gradient: LinearGradient(
                 colors: [
@@ -127,7 +134,7 @@ class _SettingsState extends State<Settings> {
               child: ConstrainedBox(
                   constraints: BoxConstraints(
                     minHeight: constraints
-                        .maxHeight, // Ensures the content fills the screen height
+                        .maxHeight,
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -198,7 +205,7 @@ class _SettingsState extends State<Settings> {
                         ),
                       ),
                       const SizedBox(height: 16),
-                      const StyledHeading('Experimental'),
+                      const StyledHeading('Extra'),
                       const SizedBox(height: 16),
                       Container(
                         decoration: BoxDecoration(
