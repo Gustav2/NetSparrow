@@ -56,7 +56,7 @@ ThemeData primaryTheme = ThemeData(
       fontSize: 28,
       fontWeight: FontWeight.bold,
       letterSpacing: 1,
-    ), 
+    ),
   ),
 
   // card theme
@@ -96,8 +96,39 @@ ThemeData primaryTheme = ThemeData(
   checkboxTheme: CheckboxThemeData(
     fillColor: WidgetStateProperty.all(AppColors.secondaryColor),
     checkColor: WidgetStateProperty.all(AppColors.textColor),
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(4),
+    shape: const CircleBorder(),
+  ),
+
+  sliderTheme: SliderThemeData(
+    activeTrackColor: AppColors.primaryColor,
+    inactiveTrackColor: AppColors.secondaryColor,
+    thumbColor: AppColors.primaryColor,
+    overlayColor: AppColors.primaryAccent,
+    valueIndicatorColor: AppColors.primaryColor,
+    valueIndicatorTextStyle: TextStyle(
+      color: AppColors.textColor,
+      fontSize: 14,
+      fontWeight: FontWeight.bold,
     ),
+    valueIndicatorShape: const PaddleSliderValueIndicatorShape(),
+  ),
+
+  switchTheme: SwitchThemeData(
+    thumbColor: WidgetStateProperty.resolveWith((states) {
+      if (states.contains(WidgetState.selected)) {
+        return AppColors.primaryAccent; // Thumb color when the switch is ON
+      }
+      return Colors.grey; // Thumb color when the switch is OFF
+    }),
+    trackColor: WidgetStateProperty.resolveWith((states) {
+      if (states.contains(WidgetState.selected)) {
+        return AppColors.primaryColor; // Track color when the switch is ON
+      }
+      return Colors.grey.withOpacity(0.1); // Track color when the switch is OFF
+    }),
+    overlayColor: WidgetStateProperty.all(AppColors.primaryAccent),
+    splashRadius: 16,
+    materialTapTargetSize: MaterialTapTargetSize.padded,
+    trackOutlineColor: WidgetStateProperty.all(Colors.transparent),
   ),
 );
