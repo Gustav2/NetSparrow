@@ -21,9 +21,10 @@ RECONNECT_DELAY = 0.1
 ERROR_CHECK_INTERVAL = 0.01
 MAX_EMPTY_READS = 500
 CONNECTION_TIMEOUT = 5.0
+CONFIDENCE_THRESHOLD = 0.9
 
-# Binary format for output: src_ip (4 bytes) + dest_ip (4 bytes)
-OUTPUT_FORMAT = "=4s4s"
+# Binary format for output: src_ip (4 bytes) + dest_ip (4 bytes) + confidence (4 bytes float)
+OUTPUT_FORMAT = "=4s4sf"
 
 class PacketData(NamedTuple):
     timestamp: int
@@ -107,10 +108,10 @@ def create_output_pipe():
         print(f"Error creating output pipe: {e}")
         return False
 
-def write_packet_data(output_fd, source_ip, dest_ip):
+def write_packet_data(output_fd, source_ip, dest_ip, confidence):
     try:
-        # Pack the IPs into binary format
-        binary_data = struct.pack(OUTPUT_FORMAT, source_ip, dest_ip)
+        # Pack the IPs and confidence into binary format
+        binary_data = struct.pack(OUTPUT_FORMAT, source_ip, dest_ip, float(confidence))
         bytes_written = os.write(output_fd, binary_data)
         return bytes_written > 0
     except BlockingIOError:
@@ -211,8 +212,9 @@ def process_batch(model, packet_buffer, output_fd):
 
         # Write each packet's IPs to the output pipe in binary format
         for i, packet in enumerate(packet_buffer):
-            if confidences[i] > 0.5:  # Only output if confidence exceeds threshold
-                if not write_packet_data(output_fd, packet.source_ip, packet.dest_ip):
+            # Only output if confidence is below threshold
+            if confidences[i] < CONFIDENCE_THRESHOLD:  # Low confidence threshold
+                if not write_packet_data(output_fd, packet.source_ip, packet.dest_ip, confidences[i]):
                     return False
         return True
     except Exception as e:

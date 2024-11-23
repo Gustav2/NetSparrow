@@ -7,7 +7,7 @@ import signal
 import errno
 
 PIPE_NAME = "/tmp/analysis_pipe"
-RECORD_SIZE = 8  # 4 bytes for src_ip + 4 bytes for dst_ip
+RECORD_SIZE = 12  # 4 bytes src_ip + 4 bytes dst_ip + 4 bytes float confidence
 RECONNECT_DELAY = 0.1
 READ_TIMEOUT = 0.01
 
@@ -42,8 +42,10 @@ def connect_to_pipe():
         return None
 
 def read_ip_pairs():
-    """Read and display IP pairs from the pipe."""
+    """Read and display low-confidence IP pairs from the pipe."""
     records_read = 0
+    detections_count = 0
+    last_detection_time = time.time()
     
     while True:
         pipe_fd = connect_to_pipe()
@@ -60,6 +62,11 @@ def read_ip_pairs():
                     if not data:
                         # No data available, wait a bit
                         time.sleep(READ_TIMEOUT)
+                        
+                        # Print periodic status if we've seen detections
+                        if detections_count > 0 and time.time() - last_detection_time > 5:
+                            print(f"\rProcessed {records_read} packets, found {detections_count} low-confidence packets", 
+                                  end="", flush=True)
                         continue
                     
                     if len(data) != RECORD_SIZE:
@@ -67,15 +74,19 @@ def read_ip_pairs():
                         continue
 
                     # Unpack the binary data
-                    src_ip, dst_ip = struct.unpack("=4s4s", data)
+                    src_ip, dst_ip, confidence = struct.unpack("=4s4sf", data)
                     
                     # Convert to readable format
                     src_ip_str = ip_bytes_to_str(src_ip)
                     dst_ip_str = ip_bytes_to_str(dst_ip)
                     
-                    # Print the pair
-                    print(f"{src_ip_str},{dst_ip_str}")
+                    # Print the record with confidence score
+                    current_time = time.strftime("%Y-%m-%d %H:%M:%S")
+                    print(f"[{current_time}] {src_ip_str},{dst_ip_str},{confidence:.4f}")
+                    
                     records_read += 1
+                    detections_count += 1
+                    last_detection_time = time.time()
 
                 except BlockingIOError:
                     # No data available, wait a bit
@@ -105,9 +116,10 @@ def main():
     # Register signal handler
     signal.signal(signal.SIGINT, signal_handler)
 
-    print("Starting IP pair reader...")
-    print("Format: source_ip,destination_ip")
-    print("-" * 40)
+    print("Starting low-confidence packet monitor...")
+    print("Monitoring for packets with confidence < 0.95")
+    print("Format: [timestamp] source_ip,destination_ip,confidence")
+    print("-" * 70)
     
     try:
         read_ip_pairs()
@@ -115,6 +127,8 @@ def main():
         print("\nExiting...")
     finally:
         print("\nShutting down...")
+        if 'detections_count' in locals():
+            print(f"Total low-confidence packets detected: {detections_count}")
 
 if __name__ == "__main__":
     main()
