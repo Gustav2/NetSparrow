@@ -1,18 +1,29 @@
-import sys
+import os
+
+PIPE_PATH = "/tmp/packet_log_pipe"  # Same as in the C program
 
 def main():
-    print("Python script is now reading from the pipe. Press Ctrl+C to terminate.")
+    # Ensure the pipe exists
+    if not os.path.exists(PIPE_PATH):
+        print(f"Error: Pipe {PIPE_PATH} does not exist.")
+        return
+
+    print(f"Listening for data on {PIPE_PATH}...")
     try:
-        for line in sys.stdin:
-            # Strip any extra whitespace or newlines
-            data = line.strip()
-            
-            # Print the data received from the pipe to the terminal
-            print(f"Received from pipe: {data}")
+        # Open the pipe for reading
+        with open(PIPE_PATH, 'r') as pipe:
+            while True:
+                # Read line by line from the pipe
+                line = pipe.readline()
+                if line:
+                    print(f"Received: {line.strip()}")
+                else:
+                    # If no data, the writer might have closed the pipe; wait and retry
+                    pass
     except KeyboardInterrupt:
-        print("\nTerminating script...")
+        print("\nExiting...")
     except Exception as e:
-        print(f"An error occurred: {e}")
+        print(f"Error: {e}")
 
 if __name__ == "__main__":
     main()

@@ -19,12 +19,15 @@
 #include <time.h>
 #include <sys/types.h>
 #include <fcntl.h>
+#include <errno.h>
 
 #define SNAP_LEN 1518
 #define ERRBUF_SIZE 256
 #define BLACKLIST_MAX 2048
 #define IP_STR_LEN 16
 #define BATCH_SIZE 32
+#define PIPE_PATH "/tmp/packet_log_pipe" // Define the pipe path
+#define BUFFER_SIZE 256
 
 typedef struct {
     pcap_t *source_handle;
@@ -212,27 +215,30 @@ void *monitor_blacklist(void *arg) {
     return NULL;
 }
 
-// Function to log packet data to a CSV file
 void packet_to_ml(const u_char *packet, int packet_len) {
-    // Parse IP header
     struct ip *ip_hdr = (struct ip *)(packet + 14); // Skip Ethernet header
-
+    
     char src_ip[IP_STR_LEN], dst_ip[IP_STR_LEN];
     inet_ntop(AF_INET, &(ip_hdr->ip_src), src_ip, IP_STR_LEN);
     inet_ntop(AF_INET, &(ip_hdr->ip_dst), dst_ip, IP_STR_LEN);
 
-    // Determine protocol
     const char *protocol = (ip_hdr->ip_p == IPPROTO_TCP) ? "TCP" :
                            (ip_hdr->ip_p == IPPROTO_UDP) ? "UDP" :
                            (ip_hdr->ip_p == IPPROTO_ICMP) ? "ICMP" : "Other";
 
-    // Format the data as a CSV-like string
     char data[256];
-    snprintf(data, sizeof(data), "%s,%s,%s,%d\n", src_ip, dst_ip, protocol, packet_len);
+    int bytes_written = snprintf(data, sizeof(data), 
+                                 "Source IP: %s, Destination IP: %s, Protocol: %s, Packet Length: %d\n", 
+                                 src_ip, dst_ip, protocol, packet_len);
 
-    // Write data to stdout
-    write(STDOUT_FILENO, data, strlen(data));
-    fflush(stdout);
+    if (pipe_fd != -1) {
+        if (write(pipe_fd, data, bytes_written) == -1) {
+            if (errno != EAGAIN) {
+                fprintf(log_file, "Error writing to pipe: %s\n", strerror(errno));
+                fflush(log_file);
+            }
+        }
+    }
 }
 
 
@@ -268,7 +274,8 @@ void *forward_packets(void *args) {
         }
 
         // Log packet data to the ML system via stdout
-        packet_to_ml(packet, header.len);
+        fprintf(pipe, "%d\n", header.len);
+        fflush(pipe);
 
         // Forward the packet
         if (pcap_sendpacket(dest_handle, packet, header.len) != 0) {
@@ -332,6 +339,25 @@ int main(int argc, char *argv[]) {
     log_file = fopen("forwarder.log", "a");
     if (!log_file) {
         perror("Error opening log file");
+        exit(EXIT_FAILURE);
+    }
+
+      // Create the named pipe
+    if (mkfifo(PIPE_PATH, 0666) == -1) {
+        perror("Error creating pipe");
+        return 1;
+    }
+
+    FILE *pipe_file = fopen(PIPE_PATH, "w");
+    if (pipe_file == NULL) {
+        perror("Error opening pipe");
+        return 1;
+    }
+
+    // Open the pipe for writing
+    pipe_fd = open(PIPE_PATH, O_WRONLY | O_NONBLOCK);
+    if (pipe_fd == -1) {
+        fprintf(stderr, "Error opening pipe: %s\n", strerror(errno));
         exit(EXIT_FAILURE);
     }
 
@@ -421,6 +447,9 @@ int main(int argc, char *argv[]) {
 
     pcap_close(handle1);
     pcap_close(handle2);
+
+    // Close the pipe before exiting
+    close(pipe);
 
     // Close the log file
     fclose(log_file);
