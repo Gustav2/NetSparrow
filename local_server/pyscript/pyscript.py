@@ -174,8 +174,8 @@ if __name__ == "__main__":
         pullBlacklist(centralToken)
         print("pulled blacklist")
 
-        print("Reading from pipe!")
-        read_from_pipe()
+        #print("Reading from pipe!")
+        #read_from_pipe()
 
         time.sleep(5)
         print("sleep")
