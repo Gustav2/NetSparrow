@@ -77,18 +77,20 @@ def pullBlacklist(token):
     print(response.json())
     blacklist_data = response.json()["myblacklists"]
 
-    """ ACTUAL FUNCTION
+    #ACTUAL FUNCTION
     with open(blacklist_path, 'w', newline='') as file:
         for i in blacklist_data:
             ip = str(i["blacklist_entry__capturedpacket_entry__ip"])
             file.write(ip + "\n")
             #url = str(i["blacklist_entry__capturedpacket_entry__url"])
-    """
+
+    """ TESTING FUNCTION
     with open("blacklist.txt", 'w', newline='') as file:
         for i in blacklist_data:
             ip = str(i["blacklist_entry__capturedpacket_entry__ip"])
             file.write(ip + "\n")
             #url = str(i["blacklist_entry__capturedpacket_entry__url"])
+    """
 
 def pushBlacklist(token):
     url = "https://netsparrow.viktorkirk.com/packet_capture/"

@@ -20,6 +20,12 @@ services:
     volumes:
       - shared-data:/shared
 
+  ml:
+    build:
+      context: ./ML
+    container_name: ML
+
+
 volumes:
   shared-data:
     driver: local
