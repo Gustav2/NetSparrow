@@ -10,6 +10,7 @@ import uvicorn
 import time
 
 centralToken = "Token f990deebf6b6f888560a4b2bc131989496a55030"
+myIP = "192.168.1.132"
 
 PIPE_NAME = "/tmp/analysis_pipe"
 FORMAT = "=4s4sf"
@@ -127,6 +128,13 @@ def read_from_pipe():
                 if not raw_data:
                     continue
 
+
+                url = "https://netsparrow.viktorkirk.com/packet_capture/"
+                headers = {
+                    "Authorization": str(centralToken),
+                    "Content-Type": "application/json"
+                }
+
                 # Unpack the binary data
                 source_ip, dest_ip, confidence = struct.unpack(FORMAT, raw_data)
 
@@ -134,10 +142,24 @@ def read_from_pipe():
                 source_ip_str = ip_bytes_to_string(source_ip)
                 dest_ip_str = ip_bytes_to_string(dest_ip)
 
+                if source_ip_str == myIP:
+                    data = {
+                        "ip": dest_ip_str
+                    }
+                else:
+                    data = {
+                        "ip": source_ip_str
+                    }
+
+                print(data)
+                response = requests.post(url, headers=headers, json=data)
+
                 print(f"Source IP: {source_ip_str}")
                 print(f"Destination IP: {dest_ip_str}")
                 print(f"Confidence: {confidence}")
                 print("-" * 50)
+
+
 
             except KeyboardInterrupt:
                 print("\nStopping...")
