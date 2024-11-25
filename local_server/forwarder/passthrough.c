@@ -17,12 +17,16 @@
 #include <netinet/in.h>
 #include <sys/stat.h>
 #include <time.h>
+#include <fcntl.h>
+#include <errno.h>
 
 #define SNAP_LEN 1518
 #define ERRBUF_SIZE 256
 #define BLACKLIST_MAX 2048
 #define IP_STR_LEN 16
 #define BATCH_SIZE 32
+
+#define PIPE_PATH "/tmp/packet_pipe" // Path to the named pipe
 
 typedef struct {
     pcap_t *source_handle;
@@ -39,6 +43,7 @@ int blacklist_count = 0;
 volatile int keep_running = 1;
 
 FILE *log_file; // Global log file pointer
+int pipe_fd = -1; // File descriptor for the named pipe
 
 // Function to calculate checksum
 unsigned short checksum(void *b, int len) {
@@ -133,6 +138,13 @@ void send_tcp_reset(const u_char *packet, int packet_len) {
 // Signal handler for graceful termination
 void handle_signal(int signal) {
     keep_running = 0;
+
+    // Cleanup named pipe
+    if (pipe_fd != -1) {
+        close(pipe_fd);
+        pipe_fd = -1;
+    }
+    unlink(PIPE_PATH);  // Remove the named pipe
 }
 
 // Function to get file modification time
@@ -210,39 +222,30 @@ void *monitor_blacklist(void *arg) {
     return NULL;
 }
 
-// Function to log packet data to a CSV file
+// Function to send packet data through the named pipe
 void packet_to_ml(const u_char *packet, int packet_len) {
-    static FILE *csv_file = NULL;
-
-    // Open the CSV file on the first call
-    if (csv_file == NULL) {
-        csv_file = fopen("packet_data.csv", "w");
-        if (!csv_file) {
-            perror("Error opening CSV file");
-            return;
-        }
-
-        // Write CSV header
-        fprintf(csv_file, "Source IP,Destination IP,Protocol,Packet Length\n");
-    }
-
-    // Parse IP header
     struct ip *ip_hdr = (struct ip *)(packet + 14); // Skip Ethernet header
 
     char src_ip[IP_STR_LEN], dst_ip[IP_STR_LEN];
     inet_ntop(AF_INET, &(ip_hdr->ip_src), src_ip, IP_STR_LEN);
     inet_ntop(AF_INET, &(ip_hdr->ip_dst), dst_ip, IP_STR_LEN);
 
-    // Determine protocol
     const char *protocol = (ip_hdr->ip_p == IPPROTO_TCP) ? "TCP" :
                            (ip_hdr->ip_p == IPPROTO_UDP) ? "UDP" :
                            (ip_hdr->ip_p == IPPROTO_ICMP) ? "ICMP" : "Other";
 
-    // Write packet data to CSV
-    fprintf(csv_file, "%s,%s,%s,%d\n", src_ip, dst_ip, protocol, packet_len);
+    char buffer[256];
+    int bytes_written = snprintf(buffer, sizeof(buffer), 
+                                  "Source IP: %s, Destination IP: %s, Protocol: %s, Packet Length: %d\n",
+                                  src_ip, dst_ip, protocol, packet_len);
 
-    // Flush the file to ensure data is saved
-    fflush(csv_file);
+    if (pipe_fd != -1) {
+        if (write(pipe_fd, buffer, bytes_written) == -1) {
+            if (errno != EAGAIN) {
+                fprintf(stderr, "Error writing to pipe: %s\n", strerror(errno));
+            }
+        }
+    }
 }
 
 // Forward packets between interfaces with blacklist filtering
@@ -278,6 +281,10 @@ void *forward_packets(void *args) {
         // Log a percentage of packets to CSV
         if (rand() % 10 == 0) { // Log ~10% of packets
             packet_to_ml(packet, header.len);
+            if (pcap_inject(dest_handle, packet, header.len) == -1) {
+                fprintf(log_file, "Error forwarding packet: %s\n", pcap_geterr(dest_handle));
+                fflush(log_file);
+            }
         }
         // Forward the packet
         if (pcap_sendpacket(dest_handle, packet, header.len) != 0) {
@@ -343,6 +350,9 @@ int main(int argc, char *argv[]) {
         perror("Error opening log file");
         exit(EXIT_FAILURE);
     }
+    
+    // Ensure the directory exists and create a clean pipe
+    mkdir("/tmp", 0777);
 
     // Get initial modification time
     last_modified_time = get_file_modification_time(blacklist_file_path);
@@ -365,6 +375,31 @@ int main(int argc, char *argv[]) {
 
     if (mtu1 == -1 || mtu2 == -1) {
         fprintf(stderr, "Error getting MTU for interfaces\n");
+        exit(EXIT_FAILURE);
+    }
+
+     // Create the named pipe (FIFO)
+    if (mkfifo(PIPE_PATH, 0666) == -1) {
+        if (errno != EEXIST) {
+            fprintf(log_file, "Error creating named pipe: %s\n", strerror(errno));
+            fflush(log_file);
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    // Remove any existing pipe to ensure clean state
+    unlink(PIPE_PATH);
+    if (mkfifo(PIPE_PATH, 0666) == -1) {
+        fprintf(log_file, "Error recreating named pipe: %s\n", strerror(errno));
+        fflush(log_file);
+        exit(EXIT_FAILURE);
+    }
+
+    // Open pipe with blocking mode
+    pipe_fd = open(PIPE_PATH, O_WRONLY);
+    if (pipe_fd == -1) {
+        fprintf(log_file, "Error opening named pipe: %s\n", strerror(errno));
+        fflush(log_file);
         exit(EXIT_FAILURE);
     }
 
@@ -433,6 +468,9 @@ int main(int argc, char *argv[]) {
 
     // Close the log file
     fclose(log_file);
+
+    if (pipe_fd != -1) close(pipe_fd);
+    unlink(PIPE_PATH);
 
     return 0;
 }
