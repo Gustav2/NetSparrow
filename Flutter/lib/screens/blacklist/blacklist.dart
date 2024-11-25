@@ -56,7 +56,7 @@ class _HomeState extends State<Blacklist> {
                       valueColor: AlwaysStoppedAnimation<Color>(Colors.black),
                     ))),
           ),
-          duration: Duration(days: 1), // SnackBar will remain until dismissed
+          duration: Duration(days: 1),
         ),
       );
     } else {
@@ -108,7 +108,7 @@ class _HomeState extends State<Blacklist> {
         builder: (BuildContext context, BoxConstraints constraints) {
           return Container(
             height: constraints
-                .maxHeight, // Ensures the background fills the screen height
+                .maxHeight,
             decoration: const BoxDecoration(
               gradient: LinearGradient(
                 colors: [
@@ -127,7 +127,7 @@ class _HomeState extends State<Blacklist> {
               child: ConstrainedBox(
                 constraints: BoxConstraints(
                   minHeight: constraints
-                      .maxHeight, // Ensures the content fills the screen height
+                      .maxHeight,
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,

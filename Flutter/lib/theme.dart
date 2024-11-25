@@ -8,24 +8,20 @@ class AppColors {
   static Color titleColor = const Color(0xff000000);
   static Color alternativeTextColor = const Color(0xffffffff);
   static Color textColor = const Color(0xff000000);
-  //static Color successColor = const Color(0xff5cc3ff);
-  //static Color highlightColor = const Color(0xfff4d07c);
+  static Color successColor = const Color(0xff5cc3ff);
+  static Color highlightColor = const Color(0xfff4d07c);
 }
 
 ThemeData primaryTheme = ThemeData(
   fontFamily: 'Poppins',
 
-  // seed color
   colorScheme: ColorScheme.fromSeed(
     seedColor: AppColors.secondaryColor,
   ),
 
-  // scaffold color
   scaffoldBackgroundColor: AppColors.secondaryAccent,
 
-  // app bar theme colors
   appBarTheme: AppBarTheme(
-    //backgroundColor: AppColors.secondaryColor,
     backgroundColor: const Color.fromARGB(255, 250, 250, 250),
     elevation: 20,
     foregroundColor: AppColors.textColor,
@@ -56,10 +52,9 @@ ThemeData primaryTheme = ThemeData(
       fontSize: 28,
       fontWeight: FontWeight.bold,
       letterSpacing: 1,
-    ), 
+    ),
   ),
 
-  // card theme
   cardTheme: CardTheme(
       color: AppColors.secondaryColor.withOpacity(0.5),
       surfaceTintColor: Colors.transparent,
@@ -67,7 +62,6 @@ ThemeData primaryTheme = ThemeData(
       shadowColor: Colors.transparent,
       margin: const EdgeInsets.only(bottom: 16)),
 
-  // popup menu theme
   popupMenuTheme: PopupMenuThemeData(
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.all(Radius.circular(8)),
@@ -96,8 +90,39 @@ ThemeData primaryTheme = ThemeData(
   checkboxTheme: CheckboxThemeData(
     fillColor: WidgetStateProperty.all(AppColors.secondaryColor),
     checkColor: WidgetStateProperty.all(AppColors.textColor),
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(4),
+    shape: const CircleBorder(),
+  ),
+
+  sliderTheme: SliderThemeData(
+    activeTrackColor: AppColors.primaryColor,
+    inactiveTrackColor: AppColors.secondaryColor,
+    thumbColor: AppColors.primaryColor,
+    overlayColor: AppColors.primaryAccent,
+    valueIndicatorColor: AppColors.primaryColor,
+    valueIndicatorTextStyle: TextStyle(
+      color: AppColors.textColor,
+      fontSize: 14,
+      fontWeight: FontWeight.bold,
     ),
+    valueIndicatorShape: const PaddleSliderValueIndicatorShape(),
+  ),
+
+  switchTheme: SwitchThemeData(
+    thumbColor: WidgetStateProperty.resolveWith((states) {
+      if (states.contains(WidgetState.selected)) {
+        return AppColors.primaryAccent;
+      }
+      return Colors.grey;
+    }),
+    trackColor: WidgetStateProperty.resolveWith((states) {
+      if (states.contains(WidgetState.selected)) {
+        return AppColors.primaryColor;
+      }
+      return Colors.grey.withOpacity(0.1);
+    }),
+    overlayColor: WidgetStateProperty.all(AppColors.primaryAccent),
+    splashRadius: 16,
+    materialTapTargetSize: MaterialTapTargetSize.padded,
+    trackOutlineColor: WidgetStateProperty.all(Colors.transparent),
   ),
 );

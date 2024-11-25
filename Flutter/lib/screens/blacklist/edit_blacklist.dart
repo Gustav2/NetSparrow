@@ -56,7 +56,7 @@ class _HomeState extends State<EditBlacklist> {
                       valueColor: AlwaysStoppedAnimation<Color>(Colors.black),
                     ))),
           ),
-          duration: Duration(days: 1), // SnackBar will remain until dismissed
+          duration: Duration(days: 1),
         ),
       );
     } else {
