@@ -20,11 +20,11 @@ services:
     volumes:
       - shared-data:/shared
 
-  pyscript:
+  ml:
     build:
       context: ./ML
     container_name: ML
-    
+
 
 volumes:
   shared-data:
