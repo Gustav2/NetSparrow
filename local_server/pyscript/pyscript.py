@@ -96,22 +96,24 @@ def read_from_pipe():
                 # Convert IP addresses to readable format
                 source_ip_str = ip_bytes_to_string(source_ip)
                 dest_ip_str = ip_bytes_to_string(dest_ip)
-                if source_ip_str == myIP:
-                    data = {
-                        "ip": dest_ip_str
-                    }
-                else:
-                    data = {
-                        "ip": source_ip_str
-                    }
 
-                print(data)
-                response = requests.post(url, headers=headers, json=data)
+                if confidence < 0.9:
+                    if source_ip_str == myIP:
+                        data = {
+                            "ip": dest_ip_str
+                        }
+                    else:
+                        data = {
+                            "ip": source_ip_str
+                        }
 
-                print(f"Source IP: {source_ip_str}")
-                print(f"Destination IP: {dest_ip_str}")
-                print(f"Confidence: {confidence}")
-                print("-" * 50)
+                    print(data)
+                    response = requests.post(url, headers=headers, json=data)
+
+                    print(f"Source IP: {source_ip_str}")
+                    print(f"Destination IP: {dest_ip_str}")
+                    print(f"Confidence: {confidence}")
+                    print("-" * 50)
 
             except KeyboardInterrupt:
                 print("\nStopping...")
