@@ -18,32 +18,33 @@ tempSettings = {
 }
 
 def pullBlacklist(centralToken):
-    url = "https://netsparrow.viktorkirk.com/settings/myblacklist/"
-    headers = {
-        "Authorization": str(centralToken),
-        "Content-Type": "application/json"
-    }
+    while True:
+        url = "https://netsparrow.viktorkirk.com/settings/myblacklist/"
+        headers = {
+            "Authorization": str(centralToken),
+            "Content-Type": "application/json"
+        }
 
-    response = requests.get(url, headers=headers)
-    print(response.json())
-    blacklist_data = response.json()["myblacklists"]
+        response = requests.get(url, headers=headers)
+        print(response.json())
+        blacklist_data = response.json()["myblacklists"]
 
-    #ACTUAL FUNCTION
-    with open(blacklist_path, 'w', newline='') as file:
-        for i in blacklist_data:
-            ip = str(i["blacklist_entry__capturedpacket_entry__ip"])
-            file.write(ip + "\n")
-            #url = str(i["blacklist_entry__capturedpacket_entry__url"])
+        #ACTUAL FUNCTION
+        with open(blacklist_path, 'w', newline='') as file:
+            for i in blacklist_data:
+                ip = str(i["blacklist_entry__capturedpacket_entry__ip"])
+                file.write(ip + "\n")
+                #url = str(i["blacklist_entry__capturedpacket_entry__url"])
 
-    """ TESTING FUNCTION
-    with open("blacklist.txt", 'w', newline='') as file:
-        for i in blacklist_data:
-            ip = str(i["blacklist_entry__capturedpacket_entry__ip"])
-            file.write(ip + "\n")
-            #url = str(i["blacklist_entry__capturedpacket_entry__url"])
-    """
+        """ TESTING FUNCTION
+        with open("blacklist.txt", 'w', newline='') as file:
+            for i in blacklist_data:
+                ip = str(i["blacklist_entry__capturedpacket_entry__ip"])
+                file.write(ip + "\n")
+                #url = str(i["blacklist_entry__capturedpacket_entry__url"])
+        """
 
-    time.sleep(5)
+        time.sleep(5)
 
 def pushBlacklist(centralToken):
     url = "https://netsparrow.viktorkirk.com/packet_capture/"
