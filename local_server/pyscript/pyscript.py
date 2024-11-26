@@ -8,7 +8,7 @@ import uvicorn
 import time
 
 centralToken = "Token f990deebf6b6f888560a4b2bc131989496a55030"
-myIP = "192.168.1.108"
+myIP = "172.26.120.53"
 
 PIPE_NAME = "/shared/analysis_pipe"
 FORMAT = "=4s4sf"
