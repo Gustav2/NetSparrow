@@ -2,7 +2,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import authenticate, login, logout
 from django.contrib import messages
 from .forms import SignUpForm
-from .models import Blacklist, MyBlacklist, CapturedPacket
+from .models import Blacklist, MyBlacklist, CapturedPacket, MySettings
 import json
 from django.http import JsonResponse
 #from django.views.decorators.csrf import csrf_exempt
@@ -65,9 +65,12 @@ def myblacklist_view(request):
 
 def mysettings(request):
     if request.user.is_authenticated:
-        return render(request, 'mysettings.html', {})
+        settings, created = MySettings.objects.get_or_create(user=request.user)
+
+        return render(request, 'mysettings.html', {'settings': settings})
     else:
         return redirect('login')
+
 
 def add_to_my_blacklist(request, blacklist_id):
     if request.user.is_authenticated:
@@ -282,3 +285,24 @@ def settings_remove_from_myblacklist(request):
             return JsonResponse({"error": str(e)}, status=500)
 
     return JsonResponse({"error": "DELETE request required."}, status=405)
+
+@api_view(['POST'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def update_settings(request):
+    if request.method == 'POST':
+        data = json.loads(request.body)
+        settings, created = MySettings.objects.get_or_create(user=request.user)
+
+        settings.auto_add_blacklist = data.get('auto_add_blacklist', settings.auto_add_blacklist)
+        settings.log_suspicious_packets = data.get('log_suspicious_packets', settings.log_suspicious_packets)
+        settings.enable_ip_blocking = data.get('enable_ip_blocking', settings.enable_ip_blocking)
+        settings.dark_mode = data.get('dark_mode', settings.dark_mode)
+        settings.notify_blacklist_updates = data.get('notify_blacklist_updates', settings.notify_blacklist_updates)
+        settings.notify_suspicious_activity = data.get('notify_suspicious_activity', settings.notify_suspicious_activity)
+
+        settings.save()
+
+        return JsonResponse({'message': 'Settings updated successfully!'}, status=200)
+
+    return JsonResponse({'error': 'POST request required.'}, status=405)
