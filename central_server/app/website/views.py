@@ -333,3 +333,27 @@ def settings_update(request):
             return JsonResponse({"error": str(e)}, status=500)
 
     return JsonResponse({"error": "PUT request required."}, status=405)
+
+# api; for getting settings - GET
+@api_view(['GET'])
+@authentication_classes([TokenAuthentication])
+def settings_get(request):
+    if request.method == 'GET':
+        try:
+            user = request.user
+
+            settings, created = MySettings.objects.get_or_create(user=user)
+
+            return JsonResponse({
+                "auto_add_blacklist": settings.auto_add_blacklist,
+                "log_suspicious_packets": settings.log_suspicious_packets,
+                "enable_ip_blocking": settings.enable_ip_blocking,
+                "dark_mode": settings.dark_mode,
+                "notify_blacklist_updates": settings.notify_blacklist_updates,
+                "notify_suspicious_activity": settings.notify_suspicious_activity
+            }, status=200)
+
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=500)
+
+    return JsonResponse({"error": "GET request required."}, status=405)
