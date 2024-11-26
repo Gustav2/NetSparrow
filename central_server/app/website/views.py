@@ -82,10 +82,10 @@ def update_settings(request):
             settings.notify_suspicious_activity = 'notify_suspicious_activity' in request.POST
 
             settings.save()
+            
+            messages.success(request, 'Settings updated successfully')
 
             return redirect('mysettings')
-        messages.success(request, 'Settings updated successfully')
-
         return redirect('mysettings')
     return redirect('login')
 
