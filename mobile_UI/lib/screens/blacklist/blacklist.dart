@@ -81,7 +81,6 @@ class _HomeState extends State<Blacklist> {
       });
       print("Error fetching data: $e");
     }
-
   }
 
   @override
