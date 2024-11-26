@@ -57,3 +57,15 @@ def check_capture_count(sender, instance, **kwargs):
         if not Blacklist.objects.filter(capturedpacket_entry__ip=instance.ip, capturedpacket_entry__url=instance.url).exists():
             captured_packet_entry = CapturedPacket.objects.filter(ip=instance.ip, url=instance.url).first()
             Blacklist.objects.create(capturedpacket_entry=captured_packet_entry)
+
+class MySettings(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='settings')
+    auto_add_blacklist = models.BooleanField(default=False)
+    log_suspicious_packets = models.BooleanField(default=False)
+    enable_ip_blocking = models.BooleanField(default=False)
+    dark_mode = models.BooleanField(default=False)
+    notify_blacklist_updates = models.BooleanField(default=False)
+    notify_suspicious_activity = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f"Settings for {self.user.username}"

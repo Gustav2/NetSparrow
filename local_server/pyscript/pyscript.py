@@ -2,50 +2,22 @@ import os
 import struct
 import requests
 import errno
+import threading
 from pathlib import Path
-from fastapi import FastAPI, status
-from pydantic import BaseModel
-from typing import NamedTuple
 import uvicorn
 import time
 
 centralToken = "Token f990deebf6b6f888560a4b2bc131989496a55030"
-myIP = "192.168.1.132"
+myIP = "172.26.120.53"
 
-PIPE_NAME = "/tmp/analysis_pipe"
+PIPE_NAME = "/shared/analysis_pipe"
 FORMAT = "=4s4sf"
+blacklist_path = Path('/shared/blacklist.txt')
 
 tempSettings = {
     "mlPercentage": 100,
     "caution": 5
 }
-
-app = FastAPI()
-blacklist_path = Path('/shared/blacklist.txt')
-
-class Data(BaseModel):
-    value: str
-
-class Settings(BaseModel):
-    mlPercentage: int
-    caution: int
-
-@app.post("/settings", status_code=status.HTTP_200_OK)
-def handle_settings(data: Settings):
-    print("Settings received")
-    print("mlPercentage: " + str(data.mlPercentage))
-    print("Caution: " + str(data.caution))
-    return {"status": "success"}
-
-    # % of packages to ML
-
-@app.get("/settings")
-def get_settings():
-    return {"mlPercentage": tempSettings["mlPercentage"], "caution": tempSettings["caution"]}
-
-@app.get("/test")
-def test():
-    return {"status": "success"}
 
 def pullBlacklist(token):
     url = "https://netsparrow.viktorkirk.com/settings/myblacklist/"
@@ -73,6 +45,8 @@ def pullBlacklist(token):
             #url = str(i["blacklist_entry__capturedpacket_entry__url"])
     """
 
+    time.sleep(5)
+
 def pushBlacklist(token):
     url = "https://netsparrow.viktorkirk.com/packet_capture/"
     headers = {
@@ -91,7 +65,6 @@ def pushBlacklist(token):
             print(url, headers, data)
             print("Status Code:", response.status_code)
             print("Response JSON:", response.json())
-
 
 def ip_bytes_to_string(ip_bytes):
     return '.'.join(str(b) for b in ip_bytes)
@@ -123,7 +96,6 @@ def read_from_pipe():
                 # Convert IP addresses to readable format
                 source_ip_str = ip_bytes_to_string(source_ip)
                 dest_ip_str = ip_bytes_to_string(dest_ip)
-
                 if source_ip_str == myIP:
                     data = {
                         "ip": dest_ip_str
@@ -149,15 +121,19 @@ def read_from_pipe():
                 time.sleep(0.1)
 
 if __name__ == "__main__":
-    while True:
-        print("pulling")
-        pullBlacklist(centralToken)
-        print("pulled blacklist")
+    """
+    pipe_thread = threading.Thread(target=read_from_pipe, daemon=True)
+    communication_thread = threading.Thread(target=pullBlacklist, args=(centralToken,), daemon=True)
 
-        #print("Reading from pipe!")
-        #read_from_pipe()
+    pipe_thread.start()
+    communication_thread.start()
 
-        time.sleep(5)
-        print("sleep")
-    #pushBlacklist(centralToken)
-    #uvicorn.run(app, host="0.0.0.0", port=8000)
+    try:
+        # Keep the main thread alive
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        print("\nShutting down gracefully...")
+    """
+    print("Reading from pipe")
+    read_from_pipe()

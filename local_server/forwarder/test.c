@@ -26,8 +26,9 @@
 #define BLACKLIST_MAX 2048
 #define IP_STR_LEN 16
 #define BATCH_SIZE 32
-#define PIPE_PATH "/tmp/packet_log_pipe" // Define the pipe path
+#define PIPE_PATH "/shared/packet_log_pipe" // Define the pipe path
 #define BUFFER_SIZE 256
+#define MAX_PACKET_SIZE 1500
 
 typedef struct {
     pcap_t *source_handle;
@@ -43,9 +44,18 @@ char blacklist[BLACKLIST_MAX][IP_STR_LEN];
 int blacklist_count = 0;
 volatile int keep_running = 1;
 
-FILE *log_file; // Global log file pointer
-int pipe_fd = -1; // Named pipe file descriptor
+#pragma pack(1) // Disable padding for the struct
+struct binary_packet {
+    uint32_t timestamp;    // 4 bytes
+    uint8_t src_ip[4];     // 4 bytes
+    uint8_t dst_ip[4];     // 4 bytes
+    uint16_t packet_size;  // 2 bytes
+    uint8_t protocol;      // 1 byte
+    uint8_t data[MAX_PACKET_SIZE]; // 1500 bytes
+};
+#pragma pack() // Re-enable default packing
 
+int pipe_fd = -1;
 
 // Function to calculate checksum
 unsigned short checksum(void *b, int len) {
@@ -217,7 +227,44 @@ void *monitor_blacklist(void *arg) {
     return NULL;
 }
 
-// Log packet details to the named pipe
+void create_binary_packet(struct binary_packet *packet, const char *src_ip_str, const char *dst_ip_str, 
+                          const char *protocol_str, int packet_len) {
+    // Set timestamp
+    packet->timestamp = (uint32_t)time(NULL);
+
+    // Convert source IP to bytes
+    if (inet_pton(AF_INET, src_ip_str, packet->src_ip) != 1) {
+        fprintf(stderr, "Invalid source IP: %s\n", src_ip_str);
+        memset(packet->src_ip, 0, sizeof(packet->src_ip));
+    }
+
+    // Convert destination IP to bytes
+    if (inet_pton(AF_INET, dst_ip_str, packet->dst_ip) != 1) {
+        fprintf(stderr, "Invalid destination IP: %s\n", dst_ip_str);
+        memset(packet->dst_ip, 0, sizeof(packet->dst_ip));
+    }
+
+    // Set packet size
+    if (packet_len <= 0 || packet_len > MAX_PACKET_SIZE) {
+        packet_len = 64; // Default size
+    }
+    packet->packet_size = (uint16_t)packet_len;
+
+    // Set protocol
+    if (strcmp(protocol_str, "TCP") == 0) {
+        packet->protocol = 6; // TCP protocol number
+    } else if (strcmp(protocol_str, "UDP") == 0) {
+        packet->protocol = 17; // UDP protocol number
+    } else if (strcmp(protocol_str, "ICMP") == 0) {
+        packet->protocol = 1; // ICMP protocol number
+    } else {
+        packet->protocol = 0; // Unknown protocol
+    }
+
+    // Fill data with zeros
+    memset(packet->data, 0, sizeof(packet->data));
+}
+
 void packet_to_pipe(const u_char *packet, int packet_len) {
     struct ip *ip_hdr = (struct ip *)(packet + 14); // Skip Ethernet header
 
@@ -225,21 +272,38 @@ void packet_to_pipe(const u_char *packet, int packet_len) {
     inet_ntop(AF_INET, &(ip_hdr->ip_src), src_ip, IP_STR_LEN);
     inet_ntop(AF_INET, &(ip_hdr->ip_dst), dst_ip, IP_STR_LEN);
 
-    const char *protocol = (ip_hdr->ip_p == IPPROTO_TCP) ? "TCP" :
-                           (ip_hdr->ip_p == IPPROTO_UDP) ? "UDP" :
-                           (ip_hdr->ip_p == IPPROTO_ICMP) ? "ICMP" : "Other";
+    uint8_t protocol = ip_hdr->ip_p;
+    const char *protocol_str = (protocol == IPPROTO_TCP) ? "tcp" :
+                               (protocol == IPPROTO_UDP) ? "udp" :
+                               (protocol == IPPROTO_ICMP) ? "icmp" : "other";
 
-    char data[256];
-    int bytes_written = snprintf(data, sizeof(data),
-                                 "Source IP: %s, Destination IP: %s, Protocol: %s, Packet Length: %d\n",
-                                 src_ip, dst_ip, protocol, packet_len);
+    // Use current timestamp
+    uint32_t timestamp = (uint32_t)time(NULL);
 
-    if (pipe_fd != -1) {
-        if (write(pipe_fd, data, bytes_written) == -1) {
+    // Prepare data buffer for formatting
+    char csv_format[2048]; // Ensure it's large enough to hold the formatted string
+
+    // Format the CSV string
+    int bytes_written = snprintf(
+        csv_format,
+        sizeof(csv_format),
+        "%u,source_label,%s,12345,%s,123,%s,-,0.000000,%d,%d,SF,-,-,0,Dd,1,76,1,76,-,benign,-",
+        timestamp,        // Timestamp
+        src_ip,           // Source IP
+        dst_ip,           // Destination IP
+        protocol_str,     // Protocol (tcp/udp/icmp/other)
+        packet_len,       // Packet size (from Ethernet header onward)
+        packet_len        // Packet size repeated
+    );
+
+    // Validate and write to pipe
+    if (pipe_fd != -1 && bytes_written > 0) {
+        if (write(pipe_fd, csv_format, bytes_written) == -1) {
             if (errno != EAGAIN) {
-                fprintf(log_file, "Error writing to pipe: %s\n", strerror(errno));
-                fflush(log_file);
+                fprintf(stderr, "Error writing to pipe: %s\n", strerror(errno));
             }
+        } else {
+            printf("CSV packet written to pipe: %s\n", csv_format);
         }
     }
 }
@@ -330,7 +394,8 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "Usage: %s <interface1> <interface2> <blacklist_file>\n", argv[0]);
         exit(EXIT_FAILURE);
     }
-
+    printf("Test");
+    fprintf(stderr, "hej");
     char *interface1 = argv[1];
     char *interface2 = argv[2];
     char *blacklist_file = argv[3];

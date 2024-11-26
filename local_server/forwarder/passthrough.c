@@ -211,6 +211,7 @@ void *monitor_blacklist(void *arg) {
 }
 
 // Function to send packet data through the named pipe
+/*
 void packet_to_ml(const u_char *packet, int packet_len) {
     struct ip *ip_hdr = (struct ip *)(packet + 14); // Skip Ethernet header
 
@@ -235,6 +236,7 @@ void packet_to_ml(const u_char *packet, int packet_len) {
         }
     }
 }
+*/
 
 // Forward packets between interfaces with blacklist filtering
 void *forward_packets(void *args) {
@@ -267,9 +269,9 @@ void *forward_packets(void *args) {
             //continue; // Skip forwarding
         }
         // Log a percentage of packets to CSV
-        if (rand() % 10 == 0) { // Log ~10% of packets
-            packet_to_ml(packet, header.len);
-        }
+        //if (rand() % 10 == 0) { // Log ~10% of packets
+        //    packet_to_ml(packet, header.len);
+        //}
         // Forward the packet
         if (pcap_sendpacket(dest_handle, packet, header.len) != 0) {
             fprintf(log_file, "Error sending packet: %s\n", pcap_geterr(dest_handle));

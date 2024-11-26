@@ -2,7 +2,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import authenticate, login, logout
 from django.contrib import messages
 from .forms import SignUpForm
-from .models import Blacklist, MyBlacklist, CapturedPacket
+from .models import Blacklist, MyBlacklist, CapturedPacket, MySettings
 import json
 from django.http import JsonResponse
 #from django.views.decorators.csrf import csrf_exempt
@@ -65,9 +65,29 @@ def myblacklist_view(request):
 
 def mysettings(request):
     if request.user.is_authenticated:
-        return render(request, 'mysettings.html', {})
-    else:
-        return redirect('login')
+        settings, created = MySettings.objects.get_or_create(user=request.user)
+        return render(request, 'mysettings.html', {'settings': settings})
+    return redirect('login')
+
+def update_settings(request):
+    if request.user.is_authenticated:
+        if request.method == 'POST':
+            settings, created = MySettings.objects.get_or_create(user=request.user)
+
+            settings.auto_add_blacklist = 'auto_add_blacklist' in request.POST
+            settings.log_suspicious_packets = 'log_suspicious_packets' in request.POST
+            settings.enable_ip_blocking = 'enable_ip_blocking' in request.POST
+            settings.dark_mode = 'dark_mode' in request.POST
+            settings.notify_blacklist_updates = 'notify_blacklist_updates' in request.POST
+            settings.notify_suspicious_activity = 'notify_suspicious_activity' in request.POST
+
+            settings.save()
+
+            return redirect('mysettings')
+        messages.success(request, 'Settings updated successfully')
+
+        return redirect('mysettings')
+    return redirect('login')
 
 def add_to_my_blacklist(request, blacklist_id):
     if request.user.is_authenticated:
@@ -282,3 +302,4 @@ def settings_remove_from_myblacklist(request):
             return JsonResponse({"error": str(e)}, status=500)
 
     return JsonResponse({"error": "DELETE request required."}, status=405)
+
