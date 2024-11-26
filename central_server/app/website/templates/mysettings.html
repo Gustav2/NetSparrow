@@ -69,3 +69,32 @@
     </div>
 </div>
 {% endblock %}
+
+<script>
+    document.querySelectorAll('.form-check-input').forEach(toggle => {
+        toggle.addEventListener('change', () => {
+            const settings = {
+                auto_add_blacklist: document.getElementById('autoAddBlacklist').checked,
+                log_suspicious_packets: document.getElementById('logSuspiciousPackets').checked,
+                enable_ip_blocking: document.getElementById('enableIpBlocking').checked,
+                dark_mode: document.getElementById('darkMode').checked,
+                notify_blacklist_updates: document.getElementById('notifyBlacklistUpdates').checked,
+                notify_suspicious_activity: document.getElementById('notifySuspiciousActivity').checked,
+            };
+
+            fetch('{% url "update_settings" %}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify(settings)
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log(data.message || data.error);
+            })
+            .catch(error => console.error('Error:', error));
+        });
+    });
+</script>
