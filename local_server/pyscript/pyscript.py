@@ -10,7 +10,7 @@ import time
 centralToken = "Token f990deebf6b6f888560a4b2bc131989496a55030"
 myIP = "192.168.1.132"
 
-PIPE_NAME = "/tmp/analysis_pipe"
+PIPE_NAME = "/shared/analysis_pipe"
 FORMAT = "=4s4sf"
 blacklist_path = Path('/shared/blacklist.txt')
 

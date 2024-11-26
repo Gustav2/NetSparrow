@@ -13,8 +13,8 @@ from sklearn.preprocessing import StandardScaler, OneHotEncoder
 import signal
 import errno
 
-INPUT_PIPE_NAME = "/tmp/packet_pipe"
-OUTPUT_PIPE_NAME = "/tmp/analysis_pipe"
+INPUT_PIPE_NAME = "/shared/packet_log_pipe"
+OUTPUT_PIPE_NAME = "/shared/analysis_pipe"
 BATCH_SIZE = 100
 MAX_WAIT_TIME = 30
 RECONNECT_DELAY = 0.1
@@ -309,7 +309,7 @@ def main():
     args = parser.parse_args()
 
     signal.signal(signal.SIGINT, signal_handler)
-    cleanup()
+    #cleanup()
 
     print("Loading model...")
     model = load_model(args.model)
