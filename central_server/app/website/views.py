@@ -69,6 +69,25 @@ def mysettings(request):
         return render(request, 'mysettings.html', {'settings': settings})
     return redirect('login')
 
+def update_settings(request):
+    if request.user.is_authenticated:
+        if request.method == 'POST':
+            settings, created = MySettings.objects.get_or_create(user=request.user)
+
+            # Update each field based on POST data
+            settings.auto_add_blacklist = 'auto_add_blacklist' in request.POST
+            settings.log_suspicious_packets = 'log_suspicious_packets' in request.POST
+            settings.enable_ip_blocking = 'enable_ip_blocking' in request.POST
+            settings.dark_mode = 'dark_mode' in request.POST
+            settings.notify_blacklist_updates = 'notify_blacklist_updates' in request.POST
+            settings.notify_suspicious_activity = 'notify_suspicious_activity' in request.POST
+
+            settings.save()  # Save changes to the database
+
+            return redirect('mysettings')  # Redirect back to the settings page
+
+        return redirect('mysettings')  # Redirect if the request is not POST
+    return redirect('login')  # Redirect if the user is not authenticated
 
 def add_to_my_blacklist(request, blacklist_id):
     if request.user.is_authenticated:
@@ -284,22 +303,3 @@ def settings_remove_from_myblacklist(request):
 
     return JsonResponse({"error": "DELETE request required."}, status=405)
 
-@api_view(['POST'])
-@authentication_classes([TokenAuthentication])
-@permission_classes([IsAuthenticated])
-def update_settings(request):
-    if request.method == 'POST':
-        data = request.data
-        settings, _ = MySettings.objects.get_or_create(user=request.user)
-
-        settings.auto_add_blacklist = data.get('auto_add_blacklist', settings.auto_add_blacklist)
-        settings.log_suspicious_packets = data.get('log_suspicious_packets', settings.log_suspicious_packets)
-        settings.enable_ip_blocking = data.get('enable_ip_blocking', settings.enable_ip_blocking)
-        settings.dark_mode = data.get('dark_mode', settings.dark_mode)
-        settings.notify_blacklist_updates = data.get('notify_blacklist_updates', settings.notify_blacklist_updates)
-        settings.notify_suspicious_activity = data.get('notify_suspicious_activity', settings.notify_suspicious_activity)
-
-        settings.save()
-        return JsonResponse({'message': 'Settings updated successfully!'}, status=200)
-
-    return JsonResponse({'error': 'POST request required.'}, status=405)
