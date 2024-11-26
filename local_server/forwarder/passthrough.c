@@ -210,39 +210,30 @@ void *monitor_blacklist(void *arg) {
     return NULL;
 }
 
-// Function to log packet data to a CSV file
+// Function to send packet data through the named pipe
 void packet_to_ml(const u_char *packet, int packet_len) {
-    static FILE *csv_file = NULL;
-
-    // Open the CSV file on the first call
-    if (csv_file == NULL) {
-        csv_file = fopen("packet_data.csv", "w");
-        if (!csv_file) {
-            perror("Error opening CSV file");
-            return;
-        }
-
-        // Write CSV header
-        fprintf(csv_file, "Source IP,Destination IP,Protocol,Packet Length\n");
-    }
-
-    // Parse IP header
     struct ip *ip_hdr = (struct ip *)(packet + 14); // Skip Ethernet header
 
     char src_ip[IP_STR_LEN], dst_ip[IP_STR_LEN];
     inet_ntop(AF_INET, &(ip_hdr->ip_src), src_ip, IP_STR_LEN);
     inet_ntop(AF_INET, &(ip_hdr->ip_dst), dst_ip, IP_STR_LEN);
 
-    // Determine protocol
     const char *protocol = (ip_hdr->ip_p == IPPROTO_TCP) ? "TCP" :
                            (ip_hdr->ip_p == IPPROTO_UDP) ? "UDP" :
                            (ip_hdr->ip_p == IPPROTO_ICMP) ? "ICMP" : "Other";
 
-    // Write packet data to CSV
-    fprintf(csv_file, "%s,%s,%s,%d\n", src_ip, dst_ip, protocol, packet_len);
+    char buffer[256];
+    int bytes_written = snprintf(buffer, sizeof(buffer), 
+                                  "Source IP: %s, Destination IP: %s, Protocol: %s, Packet Length: %d\n",
+                                  src_ip, dst_ip, protocol, packet_len);
 
-    // Flush the file to ensure data is saved
-    fflush(csv_file);
+    if (pipe_fd != -1) {
+        if (write(pipe_fd, buffer, bytes_written) == -1) {
+            if (errno != EAGAIN) {
+                fprintf(stderr, "Error writing to pipe: %s\n", strerror(errno));
+            }
+        }
+    }
 }
 
 // Forward packets between interfaces with blacklist filtering
