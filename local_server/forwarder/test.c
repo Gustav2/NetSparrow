@@ -44,14 +44,16 @@ char blacklist[BLACKLIST_MAX][IP_STR_LEN];
 int blacklist_count = 0;
 volatile int keep_running = 1;
 
+#pragma pack(1) // Disable padding
 struct binary_packet {
     uint32_t timestamp;    // 4 bytes
     uint8_t src_ip[4];     // 4 bytes
     uint8_t dst_ip[4];     // 4 bytes
     uint16_t packet_size;  // 2 bytes
     uint8_t protocol;      // 1 byte
-    uint8_t data[MAX_PACKET_SIZE]; // 1500 bytes
+    uint8_t data[1500];    // 1500 bytes
 };
+#pragma pack() // Re-enable default packing
 
 FILE *log_file; // Global log file pointer
 int pipe_fd = -1; // Named pipe file descriptor
@@ -282,11 +284,9 @@ void packet_to_pipe(const u_char *packet, int packet_len) {
     // Write the binary packet to the pipe
     if (pipe_fd != -1) {
         ssize_t bytes_written = write(pipe_fd, &binary_pkt, sizeof(binary_pkt));
-        if (bytes_written == -1) {
-            if (errno != EAGAIN) {
-                fprintf(stderr, "Error writing to pipe: %s\n", strerror(errno));
-            }
-        } else {
+    if (bytes_written != sizeof(binary_pkt)) {
+            fprintf(stderr, "Error: Only %zd bytes written (Expected: %zu)\n", bytes_written, sizeof(binary_pkt));
+    } else {
             printf("Binary packet written to pipe (%zd bytes).\n", bytes_written);
         }
     }
