@@ -97,7 +97,7 @@ def read_from_pipe():
                 source_ip_str = ip_bytes_to_string(source_ip)
                 dest_ip_str = ip_bytes_to_string(dest_ip)
 
-                if confidence < 0.9:
+                if confidence > 0.9:
                     if source_ip_str == myIP:
                         data = {
                             "ip": dest_ip_str
