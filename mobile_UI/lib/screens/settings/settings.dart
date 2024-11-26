@@ -20,23 +20,23 @@ class _SettingsState extends State<Settings> {
     "Other": 0,
   };
 
-  Map<int, bool> advanced = {
-    5: false,
-    6: false,
-    7: true,
-    8: false,
+  Map<String, bool> advanced = {
+    "Auto add central blacklist entries": true,
+    "Log suspicious packets": true,
+    "Enable IP blocking": true,
+    "Alert new entries": false,
   };
 
-  Map<int, bool> extra = {
-    9: false,
-    10: false,
-    11: false,
-    12: false,
+  Map<String, bool> extra = {
+    "Dark mode": false,
+    "Large icons": false,
+    "App animations": false,
+    "Color blind mode": false,
   };
 
   late Map<String, int> initialGeneral;
-  late Map<int, bool> initialAdvanced;
-  late Map<int, bool> initialExtra;
+  late Map<String, bool> initialAdvanced;
+  late Map<String, bool> initialExtra;
 
   @override
   void initState() {
@@ -187,7 +187,7 @@ class _SettingsState extends State<Settings> {
                               children: [
                                 Padding(
                                   padding: const EdgeInsets.all(8.0),
-                                  child: StyledText('Setting ${entry.key}'),
+                                  child: StyledText(entry.key),
                                 ),
                                 const Expanded(child: SizedBox()),
                                 Switch(
@@ -205,7 +205,7 @@ class _SettingsState extends State<Settings> {
                         ),
                       ),
                       const SizedBox(height: 16),
-                      const StyledHeading('Extra'),
+                      const StyledHeading('Appearance'),
                       const SizedBox(height: 16),
                       Container(
                         decoration: BoxDecoration(
@@ -218,7 +218,7 @@ class _SettingsState extends State<Settings> {
                               children: [
                                 Padding(
                                   padding: const EdgeInsets.all(8.0),
-                                  child: StyledText('Setting ${entry.key}'),
+                                  child: StyledText(entry.key),
                                 ),
                                 const Expanded(child: SizedBox()),
                                 Switch(
