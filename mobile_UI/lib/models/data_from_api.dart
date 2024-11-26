@@ -211,4 +211,52 @@ class ApiService {
       throw Exception("Failed to add entry to blacklist");
     }
   }
+
+  Future<void> postSetting(String setting, bool value) async {
+    final response = await http.post(
+      Uri.parse("$blacklistUrl/settings/"),
+      headers: {
+        'Authorization': token,
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({
+        setting: value,
+      }),
+    );
+
+    if (response.statusCode == 200) {
+      print("Setting updated successfully");
+    } else {
+      throw Exception("Failed to update setting");
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getSettings() async {
+    final response = await http.get(
+      Uri.parse("$blacklistUrl/settings/"),
+      headers: {
+        'Authorization': token,
+        'Content-Type': 'application/json',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      Map<String, dynamic> data = jsonDecode(response.body);
+
+      if (data['settings'] is List) {
+        List<dynamic> settingsList = data['settings'];
+
+        return settingsList
+            .map<Map<String, dynamic>>((item) => {
+                  'setting': item['setting'],
+                  'value': item['value'],
+                })
+            .toList();
+    } else {
+      throw Exception("Failed to load settings");
+    }
+  } else {
+    throw Exception("Failed to load settings");
+  }
+  }
 }
