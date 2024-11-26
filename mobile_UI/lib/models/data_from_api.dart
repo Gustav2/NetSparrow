@@ -241,7 +241,13 @@ class ApiService {
     if (response.statusCode == 200) {
       Map<String, dynamic> data = jsonDecode(response.body);
 
-      return data;
+      Map<String, dynamic> modifiedData = {};
+      data.forEach((key, value) {
+        String newKey = key.replaceAll('_', ' ').split(' ').map((word) => word[0].toUpperCase() + word.substring(1).toLowerCase()).join(' ');
+        newKey = newKey[0].toUpperCase() + newKey.substring(1).toLowerCase();
+        modifiedData[newKey] = value;
+      });
+      return modifiedData;
     } else {
       throw Exception("Failed to load settings");
     }
