@@ -26,7 +26,7 @@
 #define BLACKLIST_MAX 2048
 #define IP_STR_LEN 16
 #define BATCH_SIZE 32
-#define PIPE_PATH "/tmp/packet_log_pipe" // Define the pipe path
+#define PIPE_PATH "/shared/packet_log_pipe" // Define the pipe path
 #define BUFFER_SIZE 256
 
 typedef struct {
@@ -330,7 +330,8 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "Usage: %s <interface1> <interface2> <blacklist_file>\n", argv[0]);
         exit(EXIT_FAILURE);
     }
-
+    printf("Test");
+    fprintf(stderr, "hej");
     char *interface1 = argv[1];
     char *interface2 = argv[2];
     char *blacklist_file = argv[3];
