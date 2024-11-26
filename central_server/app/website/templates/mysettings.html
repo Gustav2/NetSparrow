@@ -5,21 +5,37 @@
     <h1>MySettings</h1>
     <br/>
 
-<div class="form-check form-switch">
-    <input class="form-check-input" type="checkbox" role="switch" id="flexSwitchCheckDefault">
-    <label class="form-check-label" for="flexSwitchCheckDefault">Default switch checkbox input</label>
+    <h2>Security and Privacy</h2>
+    <br/>
+  <div class="form-check form-switch">
+    <input class="form-check-input" type="checkbox" role="switch" id="flexSwitchCheckChecked" checked>
+    <label class="form-check-label" for="flexSwitchCheckChecked">Auto add Central Blacklist entries</label>
   </div>
   <div class="form-check form-switch">
     <input class="form-check-input" type="checkbox" role="switch" id="flexSwitchCheckChecked" checked>
-    <label class="form-check-label" for="flexSwitchCheckChecked">Checked switch checkbox input</label>
+    <label class="form-check-label" for="flexSwitchCheckChecked">Log Suspicious Packets</label>
   </div>
   <div class="form-check form-switch">
-    <input class="form-check-input" type="checkbox" role="switch" id="flexSwitchCheckDisabled" disabled>
-    <label class="form-check-label" for="flexSwitchCheckDisabled">Disabled switch checkbox input</label>
+    <input class="form-check-input" type="checkbox" role="switch" id="flexSwitchCheckChecked" checked>
+    <label class="form-check-label" for="flexSwitchCheckChecked">Enable IP Blocking</label>
+  </div>
+    
+  <h2>User Preferences</h2>
+    <br/>
+ <div class="form-check form-switch">
+    <input class="form-check-input" type="checkbox" role="switch" id="flexSwitchCheckDefault" checked>
+    <label class="form-check-label" for="flexSwitchCheckChecked">Dark Mode</label>
+  </div>
+    
+  <h2>Notifications</h2>
+    <br/>
+  <div class="form-check form-switch">
+    <input class="form-check-input" type="checkbox" role="switch" id="flexSwitchCheckDefault" checked>
+    <label class="form-check-label" for="flexSwitchCheckChecked">Receive Alerts for New Blacklist Entries</label>
   </div>
   <div class="form-check form-switch">
-    <input class="form-check-input" type="checkbox" role="switch" id="flexSwitchCheckCheckedDisabled" checked disabled>
-    <label class="form-check-label" for="flexSwitchCheckCheckedDisabled">Disabled checked switch checkbox input</label>
+    <input class="form-check-input" type="checkbox" role="switch" id="flexSwitchCheckDefault" checked>
+    <label class="form-check-label" for="flexSwitchCheckChecked">Notify When Suspicious Activity is Detected</label>
   </div>
+
   {% endblock %}
-  
