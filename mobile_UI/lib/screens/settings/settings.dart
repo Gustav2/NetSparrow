@@ -27,7 +27,7 @@ class _SettingsState extends State<Settings> {
     8: false,
   };
 
-  Map<int, bool> experimental = {
+  Map<int, bool> extra = {
     9: false,
     10: false,
     11: false,
@@ -36,7 +36,7 @@ class _SettingsState extends State<Settings> {
 
   late Map<String, int> initialGeneral;
   late Map<int, bool> initialAdvanced;
-  late Map<int, bool> initialExperimental;
+  late Map<int, bool> initialExtra;
 
   @override
   void initState() {
@@ -44,13 +44,13 @@ class _SettingsState extends State<Settings> {
 
     initialGeneral = Map.from(general);
     initialAdvanced = Map.from(advanced);
-    initialExperimental = Map.from(experimental);
+    initialExtra = Map.from(extra);
   }
 
   bool hasChanges() {
     if (!MapEquality().equals(initialGeneral, general)) return true;
     if (!MapEquality().equals(initialAdvanced, advanced)) return true;
-    if (!MapEquality().equals(initialExperimental, experimental)) return true;
+    if (!MapEquality().equals(initialExtra, extra)) return true;
 
     return false;
   }
@@ -84,7 +84,7 @@ class _SettingsState extends State<Settings> {
                   setState(() {
                     initialGeneral = Map.from(general);
                     initialAdvanced = Map.from(advanced);
-                    initialExperimental = Map.from(experimental);
+                    initialExtra = Map.from(extra);
                     changesMade = false;
                   });
               
@@ -213,7 +213,7 @@ class _SettingsState extends State<Settings> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Column(
-                          children: experimental.entries.map((entry) {
+                          children: extra.entries.map((entry) {
                             return Row(
                               children: [
                                 Padding(
@@ -225,7 +225,7 @@ class _SettingsState extends State<Settings> {
                                   value: entry.value,
                                   onChanged: (bool value) {
                                     setState(() {
-                                      experimental[entry.key] = value;
+                                      extra[entry.key] = value;
                                     });
                                     fetch();
                                   },
