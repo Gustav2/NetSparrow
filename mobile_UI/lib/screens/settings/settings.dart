@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:my_app/models/data_from_api.dart';
 import 'package:my_app/shared/styled_text.dart';
 import 'package:collection/collection.dart';
 import 'package:my_app/theme.dart';
@@ -12,19 +13,13 @@ class Settings extends StatefulWidget {
 }
 
 class _SettingsState extends State<Settings> {
+  final ApiService apiService = ApiService();
   bool changesMade = false;
   bool snackbarShown = false;
 
   Map<String, int> general = {
     "Caution": 0,
     "Other": 0,
-  };
-
-  Map<String, bool> advanced = {
-    "Auto add central blacklist entries": true,
-    "Log suspicious packets": true,
-    "Enable IP blocking": true,
-    "Alert new entries": false,
   };
 
   Map<String, bool> extra = {
@@ -34,27 +29,44 @@ class _SettingsState extends State<Settings> {
     "Color blind mode": false,
   };
 
+  Map<String, dynamic> realsettings = {
+    "...": false,
+    "... ": false,
+    "...  ": false,
+    "...   ": false,
+    "...    ": false,
+    "...     ": false,};
+
   late Map<String, int> initialGeneral;
-  late Map<String, bool> initialAdvanced;
   late Map<String, bool> initialExtra;
+  late Map<String, dynamic> initialreal;
 
   @override
   void initState() {
     super.initState();
 
+    fetchSettingsData();
+
     initialGeneral = Map.from(general);
-    initialAdvanced = Map.from(advanced);
     initialExtra = Map.from(extra);
+    initialreal = Map.from(realsettings);
   }
 
   bool hasChanges() {
     if (!MapEquality().equals(initialGeneral, general)) return true;
-    if (!MapEquality().equals(initialAdvanced, advanced)) return true;
     if (!MapEquality().equals(initialExtra, extra)) return true;
+    if (!MapEquality().equals(initialreal, realsettings)) return true;
 
     return false;
   }
 
+  Future<void> postSettingsData() async {
+    try {
+      await apiService.postSettings(realsettings);
+    } catch (e) {
+      print("error");
+    }
+  }
 
   Future<void> showSnackBar() async {
     if (!hasChanges()) {
@@ -78,16 +90,17 @@ class _SettingsState extends State<Settings> {
             children: [
               TextButton(
                 style: ButtonStyle(
-                  backgroundColor:WidgetStateProperty.all(AppColors.primaryColor),
+                  backgroundColor: WidgetStateProperty.all(AppColors.primaryColor),
                 ),
                 onPressed: () {
                   setState(() {
                     initialGeneral = Map.from(general);
-                    initialAdvanced = Map.from(advanced);
                     initialExtra = Map.from(extra);
+                    initialreal = Map.from(realsettings);
                     changesMade = false;
+                    postSettingsData();
                   });
-              
+
                   ScaffoldMessenger.of(context).hideCurrentSnackBar();
                   snackbarShown = false;
                 },
@@ -103,6 +116,18 @@ class _SettingsState extends State<Settings> {
 
   Future<void> fetch() async {
     showSnackBar();
+  }
+
+  Future<void> fetchSettingsData() async {
+    try {
+      final settingsData = await apiService.getSettings();
+      setState(() {
+        realsettings = settingsData;
+        initialreal = Map.from(realsettings);
+      });
+    } catch (e) {
+      print("error");
+    }
   }
 
   @override
@@ -174,7 +199,7 @@ class _SettingsState extends State<Settings> {
                         ),
                       ),
                       const SizedBox(height: 16),
-                      const StyledHeading('Advanced'),
+                      const StyledHeading('Settings'),
                       const SizedBox(height: 16),
                       Container(
                         decoration: BoxDecoration(
@@ -182,7 +207,7 @@ class _SettingsState extends State<Settings> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Column(
-                          children: advanced.entries.map((entry) {
+                          children: realsettings.entries.map((entry) {
                             return Row(
                               children: [
                                 Padding(
@@ -194,7 +219,7 @@ class _SettingsState extends State<Settings> {
                                   value: entry.value,
                                   onChanged: (bool value) {
                                     setState(() {
-                                      advanced[entry.key] = value;
+                                      realsettings[entry.key] = value;
                                     });
                                     fetch();
                                   },

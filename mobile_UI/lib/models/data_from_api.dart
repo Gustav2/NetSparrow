@@ -212,28 +212,26 @@ class ApiService {
     }
   }
 
-  Future<void> postSetting(String setting, bool value) async {
+  Future<void> postSettings(Map<String, dynamic> settings) async {
     final response = await http.post(
-      Uri.parse("$blacklistUrl/settings/"),
+      Uri.parse("$blacklistUrl/api/settings/update/"),
       headers: {
         'Authorization': token,
         'Content-Type': 'application/json',
       },
-      body: jsonEncode({
-        setting: value,
-      }),
+      body: jsonEncode(settings),
     );
 
     if (response.statusCode == 200) {
-      print("Setting updated successfully");
+      print("Settings updated successfully");
     } else {
-      throw Exception("Failed to update setting");
+      throw Exception("Failed to update settings");
     }
   }
 
-  Future<List<Map<String, dynamic>>> getSettings() async {
+  Future<Map<String, dynamic>> getSettings() async {
     final response = await http.get(
-      Uri.parse("$blacklistUrl/settings/"),
+      Uri.parse("$blacklistUrl/api/settings/get/"),
       headers: {
         'Authorization': token,
         'Content-Type': 'application/json',
@@ -243,20 +241,9 @@ class ApiService {
     if (response.statusCode == 200) {
       Map<String, dynamic> data = jsonDecode(response.body);
 
-      if (data['settings'] is List) {
-        List<dynamic> settingsList = data['settings'];
-
-        return settingsList
-            .map<Map<String, dynamic>>((item) => {
-                  'setting': item['setting'],
-                  'value': item['value'],
-                })
-            .toList();
+      return data;
     } else {
       throw Exception("Failed to load settings");
     }
-  } else {
-    throw Exception("Failed to load settings");
-  }
   }
 }
