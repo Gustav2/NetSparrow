@@ -16,7 +16,6 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <sys/stat.h>
-#include <sys/types.h>
 #include <time.h>
 
 #define SNAP_LEN 1518
@@ -24,8 +23,6 @@
 #define BLACKLIST_MAX 2048
 #define IP_STR_LEN 16
 #define BATCH_SIZE 32
-#define BUFFER_SIZE 256
-#define PIPE_NAME "/tmp/my_pipe"
 
 typedef struct {
     pcap_t *source_handle;
@@ -213,6 +210,32 @@ void *monitor_blacklist(void *arg) {
     return NULL;
 }
 
+// Function to send packet data through the named pipe
+void packet_to_ml(const u_char *packet, int packet_len) {
+    struct ip *ip_hdr = (struct ip *)(packet + 14); // Skip Ethernet header
+
+    char src_ip[IP_STR_LEN], dst_ip[IP_STR_LEN];
+    inet_ntop(AF_INET, &(ip_hdr->ip_src), src_ip, IP_STR_LEN);
+    inet_ntop(AF_INET, &(ip_hdr->ip_dst), dst_ip, IP_STR_LEN);
+
+    const char *protocol = (ip_hdr->ip_p == IPPROTO_TCP) ? "TCP" :
+                           (ip_hdr->ip_p == IPPROTO_UDP) ? "UDP" :
+                           (ip_hdr->ip_p == IPPROTO_ICMP) ? "ICMP" : "Other";
+
+    char buffer[256];
+    int bytes_written = snprintf(buffer, sizeof(buffer), 
+                                  "Source IP: %s, Destination IP: %s, Protocol: %s, Packet Length: %d\n",
+                                  src_ip, dst_ip, protocol, packet_len);
+
+    if (pipe_fd != -1) {
+        if (write(pipe_fd, buffer, bytes_written) == -1) {
+            if (errno != EAGAIN) {
+                fprintf(stderr, "Error writing to pipe: %s\n", strerror(errno));
+            }
+        }
+    }
+}
+
 // Forward packets between interfaces with blacklist filtering
 void *forward_packets(void *args) {
     forwarder_args_t *forward_args = (forwarder_args_t *)args;
@@ -245,8 +268,7 @@ void *forward_packets(void *args) {
         }
         // Log a percentage of packets to CSV
         if (rand() % 10 == 0) { // Log ~10% of packets
-            fprintf(pipe, "%d\n", packet);
-            fflush(pipe);
+            packet_to_ml(packet, header.len);
         }
         // Forward the packet
         if (pcap_sendpacket(dest_handle, packet, header.len) != 0) {
@@ -337,19 +359,6 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    // Create the named pipe (FIFO)
-    if (mkfifo(PIPE_NAME, 0666) == -1) {  // Permissions: rw-rw-rw-
-        perror("Failed to create named pipe");
-        return 1;
-    }
-
-    FILE *pipe = fopen(PIPE_NAME, "w");  // Open the named pipe for writing
-    if (pipe == NULL) {
-        perror("Failed to open pipe");
-        return 1;
-    }
-
-
     // Create pcap handles for both interfaces
     pcap_t *handle1 = pcap_create(interface1, errbuf);
     pcap_t *handle2 = pcap_create(interface2, errbuf);
@@ -415,8 +424,6 @@ int main(int argc, char *argv[]) {
 
     // Close the log file
     fclose(log_file);
-
-    fclose(pipe);  // Close the pipe (this line will never be reached in this loop)
 
     return 0;
 }
