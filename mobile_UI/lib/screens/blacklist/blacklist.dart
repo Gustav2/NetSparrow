@@ -75,7 +75,6 @@ class _HomeState extends State<Blacklist> {
         myBlacklist = myBlacklistData;
       });
 
-      print("Blacklist: $blacklist");
     } catch (e) {
       setState(() {
         print("Error: ${e.toString()}");
