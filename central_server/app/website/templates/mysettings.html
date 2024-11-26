@@ -3,62 +3,39 @@
 {% block content %}
 <div class="col-md-6 offset-md-3">
     <h1>My Settings</h1>
-    <form id="settingsForm">
+    <form method="POST" action="{% url 'update_settings' %}" id="settingsForm">
+        {% csrf_token %}
         <h2>Security and Privacy</h2>
         <div class="form-check form-switch">
-            <input class="form-check-input" type="checkbox" id="autoAddBlacklist" {% if settings.auto_add_blacklist %}checked{% endif %}>
+            <input class="form-check-input" type="checkbox" name="auto_add_blacklist" id="autoAddBlacklist" {% if settings.auto_add_blacklist %}checked{% endif %}>
             <label class="form-check-label" for="autoAddBlacklist">Auto add Central Blacklist entries</label>
         </div>
         <div class="form-check form-switch">
-            <input class="form-check-input" type="checkbox" id="logSuspiciousPackets" {% if settings.log_suspicious_packets %}checked{% endif %}>
+            <input class="form-check-input" type="checkbox" name="log_suspicious_packets" id="logSuspiciousPackets" {% if settings.log_suspicious_packets %}checked{% endif %}>
             <label class="form-check-label" for="logSuspiciousPackets">Log Suspicious Packets</label>
         </div>
         <div class="form-check form-switch">
-            <input class="form-check-input" type="checkbox" id="enableIpBlocking" {% if settings.enable_ip_blocking %}checked{% endif %}>
+            <input class="form-check-input" type="checkbox" name="enable_ip_blocking" id="enableIpBlocking" {% if settings.enable_ip_blocking %}checked{% endif %}>
             <label class="form-check-label" for="enableIpBlocking">Enable IP Blocking</label>
         </div>
 
         <h2>User Preferences</h2>
         <div class="form-check form-switch">
-            <input class="form-check-input" type="checkbox" id="darkMode" {% if settings.dark_mode %}checked{% endif %}>
+            <input class="form-check-input" type="checkbox" name="dark_mode" id="darkMode" {% if settings.dark_mode %}checked{% endif %}>
             <label class="form-check-label" for="darkMode">Dark Mode</label>
         </div>
 
         <h2>Notifications</h2>
         <div class="form-check form-switch">
-            <input class="form-check-input" type="checkbox" id="notifyBlacklistUpdates" {% if settings.notify_blacklist_updates %}checked{% endif %}>
+            <input class="form-check-input" type="checkbox" name="notify_blacklist_updates" id="notifyBlacklistUpdates" {% if settings.notify_blacklist_updates %}checked{% endif %}>
             <label class="form-check-label" for="notifyBlacklistUpdates">Receive Alerts for New Blacklist Entries</label>
         </div>
         <div class="form-check form-switch">
-            <input class="form-check-input" type="checkbox" id="notifySuspiciousActivity" {% if settings.notify_suspicious_activity %}checked{% endif %}>
+            <input class="form-check-input" type="checkbox" name="notify_suspicious_activity" id="notifySuspiciousActivity" {% if settings.notify_suspicious_activity %}checked{% endif %}>
             <label class="form-check-label" for="notifySuspiciousActivity">Notify When Suspicious Activity is Detected</label>
         </div>
-        <button type="button" id="saveSettings" class="btn btn-primary mt-3">Save Settings</button>
+
+        <button type="submit" class="btn btn-success">Save Changes</button>
     </form>
 </div>
 {% endblock %}
-
-<script>
-document.getElementById('saveSettings').addEventListener('click', () => {
-    const settings = {
-        auto_add_blacklist: document.getElementById('autoAddBlacklist').checked,
-        log_suspicious_packets: document.getElementById('logSuspiciousPackets').checked,
-        enable_ip_blocking: document.getElementById('enableIpBlocking').checked,
-        dark_mode: document.getElementById('darkMode').checked,
-        notify_blacklist_updates: document.getElementById('notifyBlacklistUpdates').checked,
-        notify_suspicious_activity: document.getElementById('notifySuspiciousActivity').checked,
-    };
-
-    fetch('{% url "update_settings" %}', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': '{{ csrf_token }}'
-        },
-        body: JSON.stringify(settings)
-    })
-    .then(response => response.json())
-    .then(data => alert(data.message || data.error))
-    .catch(error => alert('Error: ' + error.message));
-});
-</script>
