@@ -17,12 +17,17 @@
 #include <netinet/in.h>
 #include <sys/stat.h>
 #include <time.h>
+#include <sys/types.h>
+#include <fcntl.h>
+#include <errno.h>
 
 #define SNAP_LEN 1518
 #define ERRBUF_SIZE 256
 #define BLACKLIST_MAX 2048
 #define IP_STR_LEN 16
 #define BATCH_SIZE 32
+#define PIPE_PATH "/shared/packet_log_pipe" // Define the pipe path
+#define BUFFER_SIZE 256
 
 typedef struct {
     pcap_t *source_handle;
@@ -39,6 +44,8 @@ int blacklist_count = 0;
 volatile int keep_running = 1;
 
 FILE *log_file; // Global log file pointer
+int pipe_fd = -1; // Named pipe file descriptor
+
 
 // Function to calculate checksum
 unsigned short checksum(void *b, int len) {
@@ -210,9 +217,8 @@ void *monitor_blacklist(void *arg) {
     return NULL;
 }
 
-// Function to send packet data through the named pipe
-/*
-void packet_to_ml(const u_char *packet, int packet_len) {
+// Log packet details to the named pipe
+void packet_to_pipe(const u_char *packet, int packet_len) {
     struct ip *ip_hdr = (struct ip *)(packet + 14); // Skip Ethernet header
 
     char src_ip[IP_STR_LEN], dst_ip[IP_STR_LEN];
@@ -223,20 +229,22 @@ void packet_to_ml(const u_char *packet, int packet_len) {
                            (ip_hdr->ip_p == IPPROTO_UDP) ? "UDP" :
                            (ip_hdr->ip_p == IPPROTO_ICMP) ? "ICMP" : "Other";
 
-    char buffer[256];
-    int bytes_written = snprintf(buffer, sizeof(buffer), 
-                                  "Source IP: %s, Destination IP: %s, Protocol: %s, Packet Length: %d\n",
-                                  src_ip, dst_ip, protocol, packet_len);
+    char data[256];
+    int bytes_written = snprintf(data, sizeof(data),
+                                 "Source IP: %s, Destination IP: %s, Protocol: %s, Packet Length: %d\n",
+                                 src_ip, dst_ip, protocol, packet_len);
 
     if (pipe_fd != -1) {
-        if (write(pipe_fd, buffer, bytes_written) == -1) {
+        if (write(pipe_fd, data, bytes_written) == -1) {
             if (errno != EAGAIN) {
-                fprintf(stderr, "Error writing to pipe: %s\n", strerror(errno));
+                fprintf(log_file, "Error writing to pipe: %s\n", strerror(errno));
+                fflush(log_file);
             }
         }
     }
 }
-*/
+
+
 
 // Forward packets between interfaces with blacklist filtering
 void *forward_packets(void *args) {
@@ -268,10 +276,10 @@ void *forward_packets(void *args) {
             fflush(log_file);
             //continue; // Skip forwarding
         }
-        // Log a percentage of packets to CSV
-        //if (rand() % 10 == 0) { // Log ~10% of packets
-        //    packet_to_ml(packet, header.len);
-        //}
+
+        // Log packet data to the ML system via stdout
+        packet_to_pipe(packet, header.len);
+
         // Forward the packet
         if (pcap_sendpacket(dest_handle, packet, header.len) != 0) {
             fprintf(log_file, "Error sending packet: %s\n", pcap_geterr(dest_handle));
@@ -322,7 +330,8 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "Usage: %s <interface1> <interface2> <blacklist_file>\n", argv[0]);
         exit(EXIT_FAILURE);
     }
-
+    printf("Test");
+    fprintf(stderr, "hej");
     char *interface1 = argv[1];
     char *interface2 = argv[2];
     char *blacklist_file = argv[3];
@@ -334,6 +343,25 @@ int main(int argc, char *argv[]) {
     log_file = fopen("forwarder.log", "a");
     if (!log_file) {
         perror("Error opening log file");
+        exit(EXIT_FAILURE);
+    }
+
+      // Create the named pipe
+    if (mkfifo(PIPE_PATH, 0666) == -1 && errno != EEXIST) {
+        perror("Error creating pipe");
+        return 1;
+    }
+
+    FILE *pipe_file = fopen(PIPE_PATH, "w");
+    if (pipe_file == NULL) {
+        perror("Error opening pipe");
+        return 1;
+    }
+
+    // Open the pipe for writing
+    pipe_fd = open(PIPE_PATH, O_WRONLY | O_NONBLOCK);
+    if (pipe_fd == -1) {
+        fprintf(stderr, "Error opening pipe: %s\n", strerror(errno));
         exit(EXIT_FAILURE);
     }
 
@@ -423,6 +451,10 @@ int main(int argc, char *argv[]) {
 
     pcap_close(handle1);
     pcap_close(handle2);
+
+    // Close the pipe before exiting
+    close(pipe_fd);
+    unlink(PIPE_PATH);
 
     // Close the log file
     fclose(log_file);
