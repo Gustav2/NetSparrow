@@ -28,6 +28,7 @@
 #define BATCH_SIZE 32
 #define PIPE_PATH "/shared/packet_log_pipe" // Define the pipe path
 #define BUFFER_SIZE 256
+#define MAX_PACKET_SIZE 1500
 
 typedef struct {
     pcap_t *source_handle;
@@ -42,6 +43,15 @@ time_t last_modified_time = 0;
 char blacklist[BLACKLIST_MAX][IP_STR_LEN];
 int blacklist_count = 0;
 volatile int keep_running = 1;
+
+struct binary_packet {
+    uint32_t timestamp;    // 4 bytes
+    uint8_t src_ip[4];     // 4 bytes
+    uint8_t dst_ip[4];     // 4 bytes
+    uint16_t packet_size;  // 2 bytes
+    uint8_t protocol;      // 1 byte
+    uint8_t data[MAX_PACKET_SIZE]; // 1500 bytes
+};
 
 FILE *log_file; // Global log file pointer
 int pipe_fd = -1; // Named pipe file descriptor
@@ -217,7 +227,44 @@ void *monitor_blacklist(void *arg) {
     return NULL;
 }
 
-// Log packet details to the named pipe
+void create_binary_packet(struct binary_packet *packet, const char *src_ip_str, const char *dst_ip_str, 
+                          const char *protocol_str, int packet_len) {
+    // Set timestamp
+    packet->timestamp = (uint32_t)time(NULL);
+
+    // Convert source IP to bytes
+    if (inet_pton(AF_INET, src_ip_str, packet->src_ip) != 1) {
+        fprintf(stderr, "Invalid source IP: %s\n", src_ip_str);
+        memset(packet->src_ip, 0, sizeof(packet->src_ip));
+    }
+
+    // Convert destination IP to bytes
+    if (inet_pton(AF_INET, dst_ip_str, packet->dst_ip) != 1) {
+        fprintf(stderr, "Invalid destination IP: %s\n", dst_ip_str);
+        memset(packet->dst_ip, 0, sizeof(packet->dst_ip));
+    }
+
+    // Set packet size
+    if (packet_len <= 0 || packet_len > MAX_PACKET_SIZE) {
+        packet_len = 64; // Default size
+    }
+    packet->packet_size = (uint16_t)packet_len;
+
+    // Set protocol
+    if (strcmp(protocol_str, "TCP") == 0) {
+        packet->protocol = 6; // TCP protocol number
+    } else if (strcmp(protocol_str, "UDP") == 0) {
+        packet->protocol = 17; // UDP protocol number
+    } else if (strcmp(protocol_str, "ICMP") == 0) {
+        packet->protocol = 1; // ICMP protocol number
+    } else {
+        packet->protocol = 0; // Unknown protocol
+    }
+
+    // Fill data with zeros
+    memset(packet->data, 0, sizeof(packet->data));
+}
+
 void packet_to_pipe(const u_char *packet, int packet_len) {
     struct ip *ip_hdr = (struct ip *)(packet + 14); // Skip Ethernet header
 
@@ -229,17 +276,18 @@ void packet_to_pipe(const u_char *packet, int packet_len) {
                            (ip_hdr->ip_p == IPPROTO_UDP) ? "UDP" :
                            (ip_hdr->ip_p == IPPROTO_ICMP) ? "ICMP" : "Other";
 
-    char data[256];
-    int bytes_written = snprintf(data, sizeof(data),
-                                 "Source IP: %s, Destination IP: %s, Protocol: %s, Packet Length: %d\n",
-                                 src_ip, dst_ip, protocol, packet_len);
+    struct binary_packet binary_pkt;
+    create_binary_packet(&binary_pkt, src_ip, dst_ip, protocol, packet_len);
 
+    // Write the binary packet to the pipe
     if (pipe_fd != -1) {
-        if (write(pipe_fd, data, bytes_written) == -1) {
+        ssize_t bytes_written = write(pipe_fd, &binary_pkt, sizeof(binary_pkt));
+        if (bytes_written == -1) {
             if (errno != EAGAIN) {
-                fprintf(log_file, "Error writing to pipe: %s\n", strerror(errno));
-                fflush(log_file);
+                fprintf(stderr, "Error writing to pipe: %s\n", strerror(errno));
             }
+        } else {
+            printf("Binary packet written to pipe (%zd bytes).\n", bytes_written);
         }
     }
 }
