@@ -84,6 +84,7 @@ def update_settings(request):
             settings.save()
 
             return redirect('mysettings')
+        messages.success(request, 'Settings updated successfully')
 
         return redirect('mysettings')
     return redirect('login')
