@@ -3,7 +3,7 @@ import requests
 url = "https://netsparrow.viktorkirk.com/api/settings/update/"
 
 headers = {
-    "Authorization": "Token your_token_here",
+    "Authorization": "f990deebf6b6f888560a4b2bc131989496a55030",
     "Content-Type": "application/json",
 }
 
