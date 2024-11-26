@@ -388,6 +388,7 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
+
     FILE *pipe_file = fopen(PIPE_PATH, "w");
     if (pipe_file == NULL) {
         perror("Error opening pipe");
@@ -400,6 +401,13 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "Error opening pipe: %s\n", strerror(errno));
         exit(EXIT_FAILURE);
     }
+
+    if (pipe_fd == -1) {
+    perror("Error opening pipe");
+    return 1;
+}
+
+
 
     // Get initial modification time
     last_modified_time = get_file_modification_time(blacklist_file_path);
