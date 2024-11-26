@@ -11,6 +11,7 @@ urlpatterns = [
     path('mysettings/', views.mysettings, name='mysettings'),
     path('update_settings/', views.update_settings, name='update_settings'),
     path('api/settings/update/', views.settings_update, name='settings_update'),
+    path('api/settings/get/', views.settings_get, name='settings_get'),
     path('add_to_my_blacklist/<int:blacklist_id>/', views.add_to_my_blacklist, name='add_to_my_blacklist'),
     path('remove_from_my_blacklist/<int:blacklist_id>/', views.remove_from_my_blacklist, name='remove_from_my_blacklist'),
     path('add_all_to_my_blacklist/', views.add_all_to_my_blacklist, name='add_all_to_my_blacklist'),

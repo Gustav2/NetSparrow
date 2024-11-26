@@ -26,7 +26,7 @@
 #define BLACKLIST_MAX 2048
 #define IP_STR_LEN 16
 #define BATCH_SIZE 32
-#define PIPE_PATH "/shared/packet_log_pipe" // Define the pipe path
+#define PIPE_PATH "/tmp/packet_log_pipe" // Define the pipe path
 #define BUFFER_SIZE 256
 #define MAX_PACKET_SIZE 1500
 
@@ -44,18 +44,20 @@ char blacklist[BLACKLIST_MAX][IP_STR_LEN];
 int blacklist_count = 0;
 volatile int keep_running = 1;
 
-#pragma pack(1) // Disable padding for the struct
+#pragma pack(1) // Ensure no padding
 struct binary_packet {
     uint32_t timestamp;    // 4 bytes
     uint8_t src_ip[4];     // 4 bytes
     uint8_t dst_ip[4];     // 4 bytes
     uint16_t packet_size;  // 2 bytes
     uint8_t protocol;      // 1 byte
-    uint8_t data[MAX_PACKET_SIZE]; // 1500 bytes
+    uint8_t data[1500];    // 1500 bytes
 };
-#pragma pack() // Re-enable default packing
+#pragma pack()
 
-int pipe_fd = -1;
+FILE *log_file; // Global log file pointer
+int pipe_fd = -1; // Named pipe file descriptor
+
 
 // Function to calculate checksum
 unsigned short checksum(void *b, int len) {
@@ -228,7 +230,7 @@ void *monitor_blacklist(void *arg) {
 }
 
 void create_binary_packet(struct binary_packet *packet, const char *src_ip_str, const char *dst_ip_str, 
-                          const char *protocol_str, int packet_len) {
+                           const char *protocol_str, int packet_len) {
     // Set timestamp
     packet->timestamp = (uint32_t)time(NULL);
 
@@ -245,7 +247,7 @@ void create_binary_packet(struct binary_packet *packet, const char *src_ip_str, 
     }
 
     // Set packet size
-    if (packet_len <= 0 || packet_len > MAX_PACKET_SIZE) {
+    if (packet_len <= 0 || packet_len > 1500) {
         packet_len = 64; // Default size
     }
     packet->packet_size = (uint16_t)packet_len;
@@ -265,49 +267,15 @@ void create_binary_packet(struct binary_packet *packet, const char *src_ip_str, 
     memset(packet->data, 0, sizeof(packet->data));
 }
 
-void packet_to_pipe(const u_char *packet, int packet_len) {
-    struct ip *ip_hdr = (struct ip *)(packet + 14); // Skip Ethernet header
-
-    char src_ip[IP_STR_LEN], dst_ip[IP_STR_LEN];
-    inet_ntop(AF_INET, &(ip_hdr->ip_src), src_ip, IP_STR_LEN);
-    inet_ntop(AF_INET, &(ip_hdr->ip_dst), dst_ip, IP_STR_LEN);
-
-    uint8_t protocol = ip_hdr->ip_p;
-    const char *protocol_str = (protocol == IPPROTO_TCP) ? "tcp" :
-                               (protocol == IPPROTO_UDP) ? "udp" :
-                               (protocol == IPPROTO_ICMP) ? "icmp" : "other";
-
-    // Use current timestamp
-    uint32_t timestamp = (uint32_t)time(NULL);
-
-    // Prepare data buffer for formatting
-    char csv_format[2048]; // Ensure it's large enough to hold the formatted string
-
-    // Format the CSV string
-    int bytes_written = snprintf(
-        csv_format,
-        sizeof(csv_format),
-        "%u,source_label,%s,12345,%s,123,%s,-,0.000000,%d,%d,SF,-,-,0,Dd,1,76,1,76,-,benign,-",
-        timestamp,        // Timestamp
-        src_ip,           // Source IP
-        dst_ip,           // Destination IP
-        protocol_str,     // Protocol (tcp/udp/icmp/other)
-        packet_len,       // Packet size (from Ethernet header onward)
-        packet_len        // Packet size repeated
-    );
-
-    // Validate and write to pipe
-    if (pipe_fd != -1 && bytes_written > 0) {
-        if (write(pipe_fd, csv_format, bytes_written) == -1) {
-            if (errno != EAGAIN) {
-                fprintf(stderr, "Error writing to pipe: %s\n", strerror(errno));
-            }
-        } else {
-            printf("CSV packet written to pipe: %s\n", csv_format);
-        }
+void write_packet_to_pipe(struct binary_packet *packet, int pipe_fd) {
+    ssize_t bytes_written = write(pipe_fd, packet, sizeof(struct binary_packet));
+    if (bytes_written != sizeof(struct binary_packet)) {
+        fprintf(stderr, "Error writing to pipe: Only %zd bytes written (Expected: %zu)\n",
+                bytes_written, sizeof(struct binary_packet));
+    } else {
+        printf("Binary packet written to pipe (%zd bytes).\n", bytes_written);
     }
 }
-
 
 
 // Forward packets between interfaces with blacklist filtering
@@ -341,8 +309,12 @@ void *forward_packets(void *args) {
             //continue; // Skip forwarding
         }
 
+        // Create a binary_packet
+        struct binary_packet binary_pkt;
+        create_binary_packet(&binary_pkt, src_ip, dst_ip, "TCP", header.len);
+
         // Log packet data to the ML system via stdout
-        packet_to_pipe(packet, header.len);
+        write_packet_to_pipe(&binary_pkt, pipe_fd);  // Pass the binary packet instead of raw packet
 
         // Forward the packet
         if (pcap_sendpacket(dest_handle, packet, header.len) != 0) {
