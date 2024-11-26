@@ -26,8 +26,10 @@
 #define BLACKLIST_MAX 2048
 #define IP_STR_LEN 16
 #define BATCH_SIZE 32
-#define PIPE_PATH "/tmp/packet_log_pipe" // Define the pipe path
+#define PIPE_PATH "/tmp/packet_log_pipe"
 #define BUFFER_SIZE 256
+#define PIPE_OPEN_RETRY_MAX 10
+#define PIPE_OPEN_RETRY_DELAY 1
 #define MAX_PACKET_SIZE 1500
 
 typedef struct {
@@ -57,6 +59,7 @@ struct binary_packet {
 
 FILE *log_file; // Global log file pointer
 int pipe_fd = -1; // Named pipe file descriptor
+int open_pipe_with_retry();
 
 
 // Function to calculate checksum
@@ -72,6 +75,42 @@ unsigned short checksum(void *b, int len) {
     sum = (sum >> 16) + (sum & 0xFFFF);
     sum += (sum >> 16);
     return ~sum;
+}
+
+// Add this function prototype before its implementation
+int open_pipe_with_retry() {
+    int retry_count = 0;
+    int fd = -1;
+
+    while (retry_count < PIPE_OPEN_RETRY_MAX) {
+        // Try to open the pipe in non-blocking write mode
+        fd = open(PIPE_PATH, O_WRONLY | O_NONBLOCK);
+        
+        if (fd != -1) {
+            fprintf(log_file, "Pipe opened successfully on attempt %d\n", retry_count + 1);
+            fflush(log_file);
+            return fd;
+        }
+
+        // Log the error
+        fprintf(log_file, "Error opening pipe (attempt %d): %s\n", 
+                retry_count + 1, strerror(errno));
+        fflush(log_file);
+
+        // If no reader is available, wait and retry
+        if (errno == ENXIO) {
+            sleep(PIPE_OPEN_RETRY_DELAY);
+            retry_count++;
+        } else {
+            // For other errors, break immediately
+            break;
+        }
+    }
+
+    // If we couldn't open the pipe after retries
+    fprintf(log_file, "Failed to open pipe after %d attempts\n", retry_count);
+    fflush(log_file);
+    return -1;
 }
 
 // Send RST to terminate original connection
@@ -267,16 +306,44 @@ void create_binary_packet(struct binary_packet *packet, const char *src_ip_str, 
     memset(packet->data, 0, sizeof(packet->data));
 }
 
-void write_packet_to_pipe(struct binary_packet *packet, int pipe_fd) {
-    ssize_t bytes_written = write(pipe_fd, packet, sizeof(struct binary_packet));
-    if (bytes_written != sizeof(struct binary_packet)) {
-        fprintf(stderr, "Error writing to pipe: Only %zd bytes written (Expected: %zu)\n",
-                bytes_written, sizeof(struct binary_packet));
+// Modify the function to be more flexible
+void packet_to_pipe(const void *packet, int packet_len) {
+    // If pipe is not open, try to reopen it
+    if (pipe_fd == -1) {
+        pipe_fd = open_pipe_with_retry();
+        if (pipe_fd == -1) {
+            return; // Cannot write to pipe
+        }
+    }
+
+    // Prepare packet envelope
+    struct {
+        int length;
+        unsigned char packet_data[SNAP_LEN];
+    } packet_envelope;
+
+    // Ensure we don't exceed our predefined max packet length
+    packet_envelope.length = packet_len <= SNAP_LEN ? packet_len : SNAP_LEN;
+    memcpy(packet_envelope.packet_data, packet, packet_envelope.length);
+
+    ssize_t result = write(pipe_fd, &packet_envelope, sizeof(int) + packet_envelope.length);
+    if (result == -1) {
+        // Handle write errors
+        if (errno == EAGAIN || errno == EWOULDBLOCK) {
+            fprintf(log_file, "Pipe write would block\n");
+        } else if (errno == EPIPE) {
+            close(pipe_fd);
+            pipe_fd = -1;
+            fprintf(log_file, "Pipe broken, will attempt to reopen\n");
+        } else {
+            fprintf(log_file, "Pipe write error: %s\n", strerror(errno));
+        }
+        fflush(log_file);
     } else {
-        printf("Binary packet written to pipe (%zd bytes).\n", bytes_written);
+        fprintf(log_file, "Binary packet written to pipe (%d bytes)\n", packet_envelope.length);
+        fflush(log_file);
     }
 }
-
 
 // Forward packets between interfaces with blacklist filtering
 void *forward_packets(void *args) {
@@ -314,7 +381,7 @@ void *forward_packets(void *args) {
         create_binary_packet(&binary_pkt, src_ip, dst_ip, "TCP", header.len);
 
         // Log packet data to the ML system via stdout
-        write_packet_to_pipe(&binary_pkt, pipe_fd);  // Pass the binary packet instead of raw packet
+        packet_to_pipe(&binary_pkt, pipe_fd);  // Pass the binary packet instead of raw packet
 
         // Forward the packet
         if (pcap_sendpacket(dest_handle, packet, header.len) != 0) {
