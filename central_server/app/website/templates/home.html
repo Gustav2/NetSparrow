@@ -1,16 +1,21 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div class="col-md-6 offset-md-3">
-
-{% if user.is_authenticated %}
-
-<h1>Home</h1>
-
-{% else %}
-
-<h1>Login</h1>
-
-{% endif %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8 text-center">
+            {% if user.is_authenticated %}
+                <h1 class="display-4">Welcome Back, {{ user.username }}!</h1>
+                <p class="lead mt-3">Explore your settings, check your notifications, or manage your account.</p>
+                <a href="{% url 'mysettings' %}" class="btn btn-primary btn-lg mt-4">Go to My Settings</a>
+            {% else %}
+                <h1 class="display-4">Welcome to NetSparrow</h1>
+                <p class="lead mt-3">Log in to manage your settings and ensure top-notch security for your devices.</p>
+                <a href="{% url 'login' %}" class="btn btn-success btn-lg mt-4">Log In</a>
+                <a href="{% url 'register' %}" class="btn btn-outline-secondary btn-lg mt-4">Sign Up</a>
+            {% endif %}
+        </div>
+    </div>
 </div>
 {% endblock %}
+
