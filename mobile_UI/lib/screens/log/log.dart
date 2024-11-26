@@ -33,7 +33,7 @@ class _HomeState extends State<Log> {
       final logData = await apiService.getLogList();
 
       setState(() {
-        status = statusData['status'];
+        //status = statusData['status'];
         blockedPackets = numberOfPackets;
         speed = latestSpeed;
         latency = latestLatency;

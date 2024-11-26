@@ -16,7 +16,7 @@ class Home extends StatefulWidget {
 class _HomeState extends State<Home> {
   final ApiService apiService = ApiService();
   String status = "Loading...";
-  int blockedPackets = 0;
+  int blockedIps = 0;
   int speed = 0;
   int latency = 0;
 
@@ -37,15 +37,11 @@ class _HomeState extends State<Home> {
   Future<void> fetchFirewallData() async {
     try {
       final statusData = await apiService.getStatus();
-      final numberOfPackets = await apiService.getBlockedPackets();
-      final latestSpeed = await apiService.getLatestSpeed();
-      final latestLatency = await apiService.getLatestLatency();
+      final blockedData = await apiService.getMyBlacklist();
 
       setState(() {
-        status = statusData['status'];
-        blockedPackets = numberOfPackets;
-        speed = latestSpeed;
-        latency = latestLatency;
+        status = statusData ? 'running' : 'error';
+        blockedIps = blockedData.length;
       });
     } catch (e) {
       setState(() {
@@ -103,7 +99,7 @@ class _HomeState extends State<Home> {
     return [
       _gridCard('Status', _getStatus(status), status, _getStatusColor(status),
           'status'),
-      _gridCard('Blocked Packets', Icons.error, '$blockedPackets', Colors.red,
+      _gridCard('Blocked Ips', Icons.error, '$blockedIps', Colors.red,
           'blocked'),
       _gridCard(
           'Speed', Icons.error, '$speed Mb/s', _getSpeedColor(40), 'speed'),

@@ -8,16 +8,17 @@ class ApiService {
   final int key = apiKey;
   final String token = blacklistToken;
 
-  Future<Map<String, dynamic>> getStatus() async {
+  Future<bool> getStatus() async {
     final response = await http.get(
-      Uri.parse("$baseUrl/status"),
+      Uri.parse("$blacklistUrl/settings/centralblacklist/"),
       headers: {
-        'x-api-key': '$key',
+        'Authorization': token,
+        'Content-Type': 'application/json',
       },
     );
 
     if (response.statusCode == 200) {
-      return jsonDecode(response.body);
+      return true;
     } else {
       throw Exception("Failed to load firewall status");
     }
