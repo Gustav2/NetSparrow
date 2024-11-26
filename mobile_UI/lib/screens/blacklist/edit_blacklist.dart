@@ -104,13 +104,10 @@ class _HomeState extends State<EditBlacklist> {
 
       try {
         if (url == 'No URL') {
-          print('test1');
           await apiService.removeFromMyBlacklist(ip, 'null');
         } else if (ip == 'Unknown IP') {
-          print('test2');
           await apiService.removeFromMyBlacklist('null', url);
         } else {
-          print('test3');
           await apiService.removeFromMyBlacklist(ip, url);
         }
       } catch (e) {
@@ -133,7 +130,6 @@ class _HomeState extends State<EditBlacklist> {
         myBlacklist = myBlacklistData;
       });
 
-      print("Blacklist: $blacklist");
     } catch (e) {
       setState(() {
         print("Error: ${e.toString()}");
