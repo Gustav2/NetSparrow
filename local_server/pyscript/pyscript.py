@@ -17,10 +17,10 @@ tempSettings = {
     "caution": 5
 }
 
-def pullBlacklist(token):
+def pullBlacklist(centralToken):
     url = "https://netsparrow.viktorkirk.com/settings/myblacklist/"
     headers = {
-        "Authorization": str(token),
+        "Authorization": str(centralToken),
         "Content-Type": "application/json"
     }
 
@@ -45,10 +45,10 @@ def pullBlacklist(token):
 
     time.sleep(5)
 
-def pushBlacklist(token):
+def pushBlacklist(centralToken):
     url = "https://netsparrow.viktorkirk.com/packet_capture/"
     headers = {
-        "Authorization": str(token),
+        "Authorization": str(centralToken),
         "Content-Type": "application/json"
     }
 
