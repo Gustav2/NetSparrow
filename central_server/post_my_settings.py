@@ -12,7 +12,7 @@ data = {
     "log_suspicious_packets": True,
     "enable_ip_blocking": False,
     "dark_mode": True,
-    "notify_blacklist_updates": True,
+    "notify_blacklist_updates": False,
     "notify_suspicious_activity": True,
 }
 
