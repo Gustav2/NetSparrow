@@ -303,3 +303,33 @@ def settings_remove_from_myblacklist(request):
 
     return JsonResponse({"error": "DELETE request required."}, status=405)
 
+# api; for updating settings - PUT
+@api_view(['POST'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def settings_update(request):
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+
+            user = request.user
+
+            settings, created = MySettings.objects.get_or_create(user=user)
+
+            settings.auto_add_blacklist = data.get('auto_add_blacklist', settings.auto_add_blacklist)
+            settings.log_suspicious_packets = data.get('log_suspicious_packets', settings.log_suspicious_packets)
+            settings.enable_ip_blocking = data.get('enable_ip_blocking', settings.enable_ip_blocking)
+            settings.dark_mode = data.get('dark_mode', settings.dark_mode)
+            settings.notify_blacklist_updates = data.get('notify_blacklist_updates', settings.notify_blacklist_updates)
+            settings.notify_suspicious_activity = data.get('notify_suspicious_activity', settings.notify_suspicious_activity)
+
+            settings.save()
+
+            return JsonResponse({"success": "Settings updated successfully."}, status=200)
+
+        except json.JSONDecodeError:
+            return JsonResponse({"error": "Invalid JSON data."}, status=400)
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=500)
+
+    return JsonResponse({"error": "PUT request required."}, status=405)

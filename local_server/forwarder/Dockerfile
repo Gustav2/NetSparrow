@@ -18,7 +18,7 @@ COPY . /app
 
 
 # Compile the application
-RUN gcc -o packet_forwarder test.c -lpcap -pthread
+RUN gcc -o packet_forwarder passthrough.c -lpcap -pthread
 
 # Entry point
 CMD ["./packet_forwarder", "eth1", "eth2", "/shared/blacklist.txt"]
