@@ -120,9 +120,10 @@ class _SettingsState extends State<Settings> {
 
   Future<void> fetchSettingsData() async {
     try {
-      final settingsData = await apiService.getSettings();
+      Map<String, dynamic> settingsData = await apiService.getSettings();
+
       setState(() {
-        realsettings = settingsData;
+        realsettings = Map.from(settingsData);
         initialreal = Map.from(realsettings);
       });
     } catch (e) {
@@ -134,6 +135,10 @@ class _SettingsState extends State<Settings> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          onPressed: fetchSettingsData,
+          icon: const Icon(Icons.sync),
+        ),
         title: const StyledTitle('Settings'),
       ),
       body: LayoutBuilder(
