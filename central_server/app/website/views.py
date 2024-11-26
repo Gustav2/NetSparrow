@@ -66,10 +66,8 @@ def myblacklist_view(request):
 def mysettings(request):
     if request.user.is_authenticated:
         settings, created = MySettings.objects.get_or_create(user=request.user)
-
         return render(request, 'mysettings.html', {'settings': settings})
-    else:
-        return redirect('login')
+    return redirect('login')
 
 
 def add_to_my_blacklist(request, blacklist_id):
@@ -291,8 +289,8 @@ def settings_remove_from_myblacklist(request):
 @permission_classes([IsAuthenticated])
 def update_settings(request):
     if request.method == 'POST':
-        data = json.loads(request.body)
-        settings, created = MySettings.objects.get_or_create(user=request.user)
+        data = request.data
+        settings, _ = MySettings.objects.get_or_create(user=request.user)
 
         settings.auto_add_blacklist = data.get('auto_add_blacklist', settings.auto_add_blacklist)
         settings.log_suspicious_packets = data.get('log_suspicious_packets', settings.log_suspicious_packets)
@@ -302,7 +300,6 @@ def update_settings(request):
         settings.notify_suspicious_activity = data.get('notify_suspicious_activity', settings.notify_suspicious_activity)
 
         settings.save()
-
         return JsonResponse({'message': 'Settings updated successfully!'}, status=200)
 
     return JsonResponse({'error': 'POST request required.'}, status=405)
