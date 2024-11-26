@@ -8,7 +8,7 @@
                 <h1 class="display-4">Welcome Back, {{ user.username }}!</h1>
                 <p class="lead mt-3">Manage your own My Blacklist, check the Central Blacklist, or explore your My Settings.</p>
                 <a href="{% url 'myblacklist' %}" class="btn btn-secondary btn-lg mt-4">Go to My Blacklist</a>
-                <a href="{% url 'centralblacklist' %}" class="btn btn-secondary btn-lg mt-4">Go to Central Blacklist</a>
+                <a href="{% url 'central_blacklist' %}" class="btn btn-secondary btn-lg mt-4">Go to Central Blacklist</a>
                 <a href="{% url 'mysettings' %}" class="btn btn-primary btn-lg mt-4">Go to My Settings</a>
             {% else %}
                 <h1 class="display-4">Welcome to NetSparrow</h1>
