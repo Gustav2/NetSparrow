@@ -8,7 +8,7 @@ import uvicorn
 import time
 
 centralToken = "Token f990deebf6b6f888560a4b2bc131989496a55030"
-myIP = "192.168.1.132"
+myIP = "172.26.120.53"
 
 PIPE_NAME = "/shared/analysis_pipe"
 FORMAT = "=4s4sf"
@@ -96,7 +96,6 @@ def read_from_pipe():
                 # Convert IP addresses to readable format
                 source_ip_str = ip_bytes_to_string(source_ip)
                 dest_ip_str = ip_bytes_to_string(dest_ip)
-
                 if source_ip_str == myIP:
                     data = {
                         "ip": dest_ip_str
@@ -122,6 +121,7 @@ def read_from_pipe():
                 time.sleep(0.1)
 
 if __name__ == "__main__":
+    """
     pipe_thread = threading.Thread(target=read_from_pipe, daemon=True)
     communication_thread = threading.Thread(target=pullBlacklist, args=(centralToken,), daemon=True)
 
@@ -134,3 +134,6 @@ if __name__ == "__main__":
             time.sleep(1)
     except KeyboardInterrupt:
         print("\nShutting down gracefully...")
+    """
+    print("Reading from pipe")
+    read_from_pipe()
