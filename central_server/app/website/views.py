@@ -63,6 +63,12 @@ def myblacklist_view(request):
     else:
         return redirect('login')
 
+def mysettings(request):
+    if request.user.is_authenticated:
+        return render(request, 'mysettings.html', {})
+    else:
+        return redirect('login')
+
 def add_to_my_blacklist(request, blacklist_id):
     if request.user.is_authenticated:
         blacklist_entry = get_object_or_404(Blacklist, id=blacklist_id)
