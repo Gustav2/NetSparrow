@@ -15,16 +15,6 @@ myIP = "192.168.1.132"
 PIPE_NAME = "/tmp/analysis_pipe"
 FORMAT = "=4s4sf"
 
-INPUT_PIPE_NAME = "/tmp/packet_pipe"
-OUTPUT_PIPE_NAME = "/tmp/analysis_pipe"
-BATCH_SIZE = 100
-MAX_WAIT_TIME = 30
-RECONNECT_DELAY = 0.1
-ERROR_CHECK_INTERVAL = 0.01
-MAX_EMPTY_READS = 500
-CONNECTION_TIMEOUT = 5.0
-CONFIDENCE_THRESHOLD = 0.9
-
 tempSettings = {
     "mlPercentage": 100,
     "caution": 5
@@ -40,14 +30,6 @@ class Settings(BaseModel):
     mlPercentage: int
     caution: int
 
-class PacketData(NamedTuple):
-    timestamp: int
-    source_ip: bytes
-    dest_ip: bytes
-    packet_size: int
-    protocol: int
-    data: bytes
-
 @app.post("/settings", status_code=status.HTTP_200_OK)
 def handle_settings(data: Settings):
     print("Settings received")
@@ -56,7 +38,6 @@ def handle_settings(data: Settings):
     return {"status": "success"}
 
     # % of packages to ML
-    #
 
 @app.get("/settings")
 def get_settings():
@@ -130,7 +111,6 @@ def read_from_pipe():
                 if not raw_data:
                     continue
 
-
                 url = "https://netsparrow.viktorkirk.com/packet_capture/"
                 headers = {
                     "Authorization": str(centralToken),
@@ -160,8 +140,6 @@ def read_from_pipe():
                 print(f"Destination IP: {dest_ip_str}")
                 print(f"Confidence: {confidence}")
                 print("-" * 50)
-
-
 
             except KeyboardInterrupt:
                 print("\nStopping...")
