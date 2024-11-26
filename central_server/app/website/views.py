@@ -74,7 +74,6 @@ def update_settings(request):
         if request.method == 'POST':
             settings, created = MySettings.objects.get_or_create(user=request.user)
 
-            # Update each field based on POST data
             settings.auto_add_blacklist = 'auto_add_blacklist' in request.POST
             settings.log_suspicious_packets = 'log_suspicious_packets' in request.POST
             settings.enable_ip_blocking = 'enable_ip_blocking' in request.POST
@@ -82,12 +81,12 @@ def update_settings(request):
             settings.notify_blacklist_updates = 'notify_blacklist_updates' in request.POST
             settings.notify_suspicious_activity = 'notify_suspicious_activity' in request.POST
 
-            settings.save()  # Save changes to the database
+            settings.save()
 
-            return redirect('mysettings')  # Redirect back to the settings page
+            return redirect('mysettings')
 
-        return redirect('mysettings')  # Redirect if the request is not POST
-    return redirect('login')  # Redirect if the user is not authenticated
+        return redirect('mysettings')
+    return redirect('login')
 
 def add_to_my_blacklist(request, blacklist_id):
     if request.user.is_authenticated:
