@@ -26,8 +26,17 @@
 #define BLACKLIST_MAX 2048
 #define IP_STR_LEN 16
 #define BATCH_SIZE 32
-#define PIPE_PATH "/shared/packet_log_pipe" // Define the pipe path
+#define PIPE_PATH "/tmp/packet_log_pipe" // Define the pipe path
 #define BUFFER_SIZE 256
+
+typedef struct __attribute__((packed)) {
+    uint32_t timestamp;      // Network byte order
+    uint8_t src_ip[4];      // Raw IP bytes
+    uint8_t dst_ip[4];      // Raw IP bytes
+    uint16_t packet_size;    // Network byte order
+    uint8_t protocol;       // Protocol number
+    uint8_t data[1500];     // Raw packet data
+} binary_packet_t;
 
 typedef struct {
     pcap_t *source_handle;
@@ -217,66 +226,34 @@ void *monitor_blacklist(void *arg) {
     return NULL;
 }
 
-// Function to recreate and reopen the named pipe if it is missing or broken
-void recreate_pipe() {
-    close(pipe_fd);
-    pipe_fd = -1;
-
-    // Re-create the named pipe if it was deleted
-    if (mkfifo(PIPE_PATH, 0666) == -1 && errno != EEXIST) {
-        fprintf(log_file, "Error re-creating pipe: %s\n", strerror(errno));
-        fflush(log_file);
-        return;
-    }
-
-    // Reopen the pipe
-    pipe_fd = open(PIPE_PATH, O_WRONLY | O_NONBLOCK);
-    if (pipe_fd == -1) {
-        fprintf(log_file, "Error reopening pipe: %s\n", strerror(errno));
-        fflush(log_file);
-    } else {
-        fprintf(log_file, "Pipe successfully re-created and reopened\n");
-        fflush(log_file);
-    }
-}
-
-
+// Add function to send packet data through pipe
 void packet_to_pipe(const u_char *packet, int packet_len) {
-    if (pipe_fd == -1) {
-        fprintf(log_file, "Pipe not open for writing\n");
-        fflush(log_file);
-        recreate_pipe();
-        return;
-    }
-
     struct ip *ip_hdr = (struct ip *)(packet + 14); // Skip Ethernet header
-    char src_ip[IP_STR_LEN], dst_ip[IP_STR_LEN];
-    inet_ntop(AF_INET, &(ip_hdr->ip_src), src_ip, IP_STR_LEN);
-    inet_ntop(AF_INET, &(ip_hdr->ip_dst), dst_ip, IP_STR_LEN);
+    binary_packet_t binary_packet;
+    
+    // Zero out the structure
+    memset(&binary_packet, 0, sizeof(binary_packet_t));
+    
+    // Fill structure with network byte order
+    binary_packet.timestamp = htonl((uint32_t)time(NULL));
+    memcpy(binary_packet.src_ip, &(ip_hdr->ip_src), 4);
+    memcpy(binary_packet.dst_ip, &(ip_hdr->ip_dst), 4);
+    binary_packet.packet_size = htons((uint16_t)packet_len);
+    binary_packet.protocol = ip_hdr->ip_p;
+    
+    // Copy packet data (limited to 1500 bytes)
+    size_t data_len = packet_len > sizeof(binary_packet.data) ? 
+                      sizeof(binary_packet.data) : packet_len;
+    memcpy(binary_packet.data, packet, data_len);
 
-    const char *protocol = (ip_hdr->ip_p == IPPROTO_TCP) ? "TCP" :
-                           (ip_hdr->ip_p == IPPROTO_UDP) ? "UDP" :
-                           (ip_hdr->ip_p == IPPROTO_ICMP) ? "ICMP" : "Other";
-
-    char data[BUFFER_SIZE];
-    int bytes_written = snprintf(data, sizeof(data),
-                                 "Source IP: %s, Destination IP: %s, Protocol: %s, Packet Length: %d\n",
-                                 src_ip, dst_ip, protocol, packet_len);
-
-    ssize_t result = write(pipe_fd, data, bytes_written);
-    if (result == -1) {
-        if (errno == EAGAIN) {
-            fprintf(log_file, "Pipe write would block, skipping packet\n");
-        } else if (errno == EPIPE || errno == ENOENT) {
-            fprintf(log_file, "Pipe broken or missing: %s\n", strerror(errno));
-            recreate_pipe();  // Attempt to recover by re-creating and reopening the pipe
-        } else {
-            fprintf(log_file, "Error writing to pipe: %s\n", strerror(errno));
+    // Write to pipe with error handling
+    if (pipe_fd != -1) {
+        ssize_t written = write(pipe_fd, &binary_packet, sizeof(binary_packet_t));
+        if (written != sizeof(binary_packet_t)) {
+            fprintf(log_file, "Pipe write error: expected %zu bytes, wrote %zd bytes\n",
+                    sizeof(binary_packet_t), written);
+            fflush(log_file);
         }
-        fflush(log_file);
-    } else if (result < bytes_written) {
-        fprintf(log_file, "Partial write to pipe, written: %zd out of %d bytes\n", result, bytes_written);
-        fflush(log_file);
     }
 }
 
