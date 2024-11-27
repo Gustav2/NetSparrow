@@ -58,42 +58,41 @@ volatile int keep_running = 1;
 FILE *log_file; // Global log file pointer
 int pipe_fd = -1; // Named pipe file descriptor
 
-// Function to write an exact number of bytes to the pipe
 ssize_t write_exact(int fd, const void *buf, size_t count) {
     size_t total_written = 0;
-    size_t write_size = (count < 1515) ? count : 1515;  // Ensure no more than 1515 bytes are written
+    while (total_written < count) {
+        ssize_t bytes_written = write(fd, buf + total_written, count - total_written);
 
-    // Pad the data if it's smaller than 1515 bytes
-    char padded_data[1515];
-    memset(padded_data, 0, sizeof(padded_data));  // Fill with zeroes or another padding value
-    memcpy(padded_data, buf, write_size);  // Copy the packet data to padded buffer
-
-    while (total_written < write_size) {
-        ssize_t bytes_written = write(fd, padded_data + total_written, write_size - total_written);
         if (bytes_written == -1) {
             if (errno == EAGAIN) {
                 // Wait for the pipe to be ready for writing
-                struct timeval timeout = {0, 100000};  // 100ms timeout
                 fd_set writefds;
                 FD_ZERO(&writefds);
                 FD_SET(fd, &writefds);
+                struct timeval timeout = {1, 0};  // 1 second timeout
 
-                int ready = select(fd + 1, NULL, &writefds, NULL, &timeout);
-                if (ready <= 0) {
-                    // Timeout or error
+                int ret = select(fd + 1, NULL, &writefds, NULL, &timeout);
+                if (ret == -1) {
+                    // Select failed
+                    return -1;
+                } else if (ret == 0) {
+                    // Timeout occurred
                     return -1;
                 }
-                continue;  // Retry writing
+                // Pipe is ready, retry writing
+                continue;
             } else {
-                // Handle other errors (such as EINTR or EIO)
+                // Handle other errors like EINTR or EIO
                 return -1;
             }
         }
+
         total_written += bytes_written;
     }
 
-    return total_written;  // Return the number of bytes written (should be 1515)
+    return total_written;
 }
+
 
 
 // Function to calculate checksum
@@ -432,7 +431,6 @@ int main(int argc, char *argv[]) {
     // Write packet data to the pipe
     if (write_exact(pipe_fd, packet_data, data_len) == -1) {
         fprintf(stderr, "Error writing to pipe: %s\n", strerror(errno));
-        fprintf(stderr, packet_data, data_len)
         close(pipe_fd);
         exit(EXIT_FAILURE);
     }
