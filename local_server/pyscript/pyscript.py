@@ -17,38 +17,39 @@ tempSettings = {
     "caution": 5
 }
 
-def pullBlacklist(token):
-    url = "https://netsparrow.viktorkirk.com/settings/myblacklist/"
-    headers = {
-        "Authorization": str(token),
-        "Content-Type": "application/json"
-    }
+def pullBlacklist(centralToken):
+    while True:
+        url = "https://netsparrow.viktorkirk.com/settings/myblacklist/"
+        headers = {
+            "Authorization": str(centralToken),
+            "Content-Type": "application/json"
+        }
 
-    response = requests.get(url, headers=headers)
-    print(response.json())
-    blacklist_data = response.json()["myblacklists"]
+        response = requests.get(url, headers=headers)
+        print(response.json())
+        blacklist_data = response.json()["myblacklists"]
 
-    #ACTUAL FUNCTION
-    with open(blacklist_path, 'w', newline='') as file:
-        for i in blacklist_data:
-            ip = str(i["blacklist_entry__capturedpacket_entry__ip"])
-            file.write(ip + "\n")
-            #url = str(i["blacklist_entry__capturedpacket_entry__url"])
+        #ACTUAL FUNCTION
+        with open(blacklist_path, 'w', newline='') as file:
+            for i in blacklist_data:
+                ip = str(i["blacklist_entry__capturedpacket_entry__ip"])
+                file.write(ip + "\n")
+                #url = str(i["blacklist_entry__capturedpacket_entry__url"])
 
-    """ TESTING FUNCTION
-    with open("blacklist.txt", 'w', newline='') as file:
-        for i in blacklist_data:
-            ip = str(i["blacklist_entry__capturedpacket_entry__ip"])
-            file.write(ip + "\n")
-            #url = str(i["blacklist_entry__capturedpacket_entry__url"])
-    """
+        """ TESTING FUNCTION
+        with open("blacklist.txt", 'w', newline='') as file:
+            for i in blacklist_data:
+                ip = str(i["blacklist_entry__capturedpacket_entry__ip"])
+                file.write(ip + "\n")
+                #url = str(i["blacklist_entry__capturedpacket_entry__url"])
+        """
 
-    time.sleep(5)
+        time.sleep(5)
 
-def pushBlacklist(token):
+def pushBlacklist(centralToken):
     url = "https://netsparrow.viktorkirk.com/packet_capture/"
     headers = {
-        "Authorization": str(token),
+        "Authorization": str(centralToken),
         "Content-Type": "application/json"
     }
 
