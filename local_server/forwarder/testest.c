@@ -20,26 +20,28 @@
 #include <sys/types.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <net/ethernet.h>  // For struct ether_header
 
 #define SNAP_LEN 1518
 #define ERRBUF_SIZE 256
 #define BLACKLIST_MAX 2048
 #define IP_STR_LEN 16
 #define BATCH_SIZE 32
-#define PIPE_PATH "/shared/packet_log_pipe" // Define the pipe path
+#define PIPE_PATH "/tmp/packet_log_pipe" // Define the pipe path
 #define BUFFER_SIZE 256
 #define PACKET_DATA_SIZE 1500
-#define MAX_PACKET_SIZE 1500
+#define MAX_PACKET_SIZE 1515  // Define max packet size if not already defined
 
-// Structure to represent the binary packet
+#pragma pack(1) // Ensure no padding
 typedef struct {
-    uint32_t timestamp;
-    uint8_t src_ip[4];
-    uint8_t dst_ip[4];
-    uint16_t packet_size;
-    uint8_t protocol;
-    uint8_t data[PACKET_DATA_SIZE];
+    uint32_t timestamp;          // Packet timestamp
+    uint8_t src_ip[4];           // Source IP address (IPv4)
+    uint8_t dst_ip[4];           // Destination IP address (IPv4)
+    uint16_t packet_size;        // Size of the packet
+    uint8_t protocol;            // Protocol (e.g., TCP, UDP, etc.)
+    uint8_t data[MAX_PACKET_SIZE]; // Packet payload data
 } binary_packet_t;
+#pragma pack() // Reset packing to default
  
 typedef struct {
     pcap_t *source_handle;
@@ -265,34 +267,28 @@ void *monitor_blacklist(void *arg) {
     return NULL;
 }
 
-// Function to send packet details to the pipe in the required format
-void packet_to_pipe(const u_char *packet, int packet_len, int pipe_fd) {
-    struct ip *ip_hdr = (struct ip *)(packet + 14);  // Skip Ethernet header
-    
-    // Create the binary packet structure
-    binary_packet_t bin_pkt;
-    memset(&bin_pkt, 0, sizeof(binary_packet_t));  // Clear structure
-    
-    // Set timestamp (current time)
+void packet_to_pipe(const uint8_t *packet, size_t packet_len, int pipe_fd) {
+    binary_packet_t bin_pkt;  // Use the defined structure
+    memset(&bin_pkt, 0, sizeof(binary_packet_t));  // Clear the structure
+
+    // Populate binary packet fields
     bin_pkt.timestamp = (uint32_t)time(NULL);
-    
-    // Convert source and destination IPs to byte arrays
-    memcpy(bin_pkt.src_ip, &ip_hdr->ip_src, 4);
-    memcpy(bin_pkt.dst_ip, &ip_hdr->ip_dst, 4);
-    
-    // Set packet size (limited to 1500 bytes)
+
+    const struct ip *ip_hdr = (struct ip *)(packet + sizeof(struct ether_header));
+    memcpy(bin_pkt.src_ip, &ip_hdr->ip_src, 4);  // Copy source IP
+    memcpy(bin_pkt.dst_ip, &ip_hdr->ip_dst, 4);  // Copy destination IP
+
     bin_pkt.packet_size = (uint16_t)(packet_len > MAX_PACKET_SIZE ? MAX_PACKET_SIZE : packet_len);
-    
-    // Set protocol (TCP, UDP, ICMP, etc.)
     bin_pkt.protocol = ip_hdr->ip_p;
-    
-    // Optional: Fill data array (you can fill with real packet data or zeroes)
-    memset(bin_pkt.data, 0, MAX_PACKET_SIZE);  // Filler data (you can adjust this part as needed)
-    
-    // Write the packet to the pipe
-    ssize_t bytes_written = write_exact(pipe_fd, &bin_pkt, sizeof(binary_packet_t));
-    if (bytes_written == -1) {
-        perror("Error writing to pipe");
+
+    memset(bin_pkt.data, 0, MAX_PACKET_SIZE);  // Clear the data array
+    memcpy(bin_pkt.data, packet, bin_pkt.packet_size);  // Copy packet data
+
+    // Write the binary packet to the pipe
+    if (write_exact(pipe_fd, &bin_pkt, sizeof(binary_packet_t)) == -1) {
+        fprintf(stderr, "Error writing to pipe: %s\n", strerror(errno));
+        close(pipe_fd);
+        exit(EXIT_FAILURE);
     }
 }
 
