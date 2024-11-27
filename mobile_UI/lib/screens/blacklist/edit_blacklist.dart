@@ -13,8 +13,8 @@ class EditBlacklist extends StatefulWidget {
 
 class _HomeState extends State<EditBlacklist> {
   final ApiService apiService = ApiService();
-  List blacklist = [];
-  List myBlacklist = [];
+  List<Map<String, dynamic>> blacklist = [];
+  List<Map<String, dynamic>> myBlacklist = [];
   String ifblocked = 'none';
   bool loading = false;
   String filter = '';
@@ -121,6 +121,7 @@ class _HomeState extends State<EditBlacklist> {
   }
 
   Future<void> fetchFirewallData() async {
+    
     try {
       final blacklistData = await apiService.getBlacklist();
       final myBlacklistData = await apiService.getMyBlacklist();
@@ -139,29 +140,28 @@ class _HomeState extends State<EditBlacklist> {
   }
 
   List<Widget> displayCards(String filter) {
-    return blacklist.where((entry) {
-      String ip =
-          (entry['capturedpacket_entry__ip'] ?? 'Unknown IP').toLowerCase();
-      String url =
-          (entry['capturedpacket_entry__url'] ?? 'No URL').toLowerCase();
-      return ip.contains(filter) || url.contains(filter);
-    }).map((entry) {
-      String check = 'unchecked';
-      for (var myentry in myBlacklist) {
-        if (myentry['blacklist_entry__capturedpacket_entry__ip'] ==
-            entry['capturedpacket_entry__ip']) {
-          check = 'checked';
-          break;
-        }
-      }
+    final blockedIPs = {
+      for (var entry in myBlacklist)
+        entry['blacklist_entry__capturedpacket_entry__ip']
+    };
 
-      return BlacklistCard(
-        entry['capturedpacket_entry__ip'] ?? 'Unknown IP',
-        entry['capturedpacket_entry__url'] ?? 'No URL',
-        check,
-        fetch: fetchFirewallData,
-      );
-    }).toList();
+    return blacklist
+        .where((entry) {
+          final ip = (entry['capturedpacket_entry__ip'] ?? 'Unknown IP').toLowerCase();
+          final url = (entry['capturedpacket_entry__url'] ?? 'No URL').toLowerCase();
+          return filter.isEmpty || ip.contains(filter) || url.contains(filter);
+        })
+        .map((entry) {
+          final isChecked = blockedIPs.contains(entry['capturedpacket_entry__ip']);
+          
+          return BlacklistCard(
+            entry['capturedpacket_entry__ip'] ?? 'Unknown IP',
+            entry['capturedpacket_entry__url'] ?? 'No URL',
+            isChecked ? 'checked' : 'unchecked',
+            fetch: fetchFirewallData,
+          );
+        })
+        .toList();
   }
 
   @override
@@ -203,22 +203,7 @@ class _HomeState extends State<EditBlacklist> {
                   children: [
                     const SizedBox(height: 16),
                     Row(children: [Container()]),
-                    Padding(
-                      padding: const EdgeInsets.only(
-                          bottom: 16, left: 16, right: 16),
-                      child: SearchBar(
-                        surfaceTintColor:
-                            const WidgetStatePropertyAll(Colors.transparent),
-                        backgroundColor:
-                            const WidgetStatePropertyAll(Colors.white),
-                        hintText: 'Search for IP or URL',
-                        onChanged: (value) {
-                          setState(() {
-                            filter = value.toLowerCase();
-                          });
-                        },
-                      ),
-                    ),
+                    _buildSearchBar(),
                     ...displayCards(filter),
                   ],
                 ),
@@ -238,6 +223,22 @@ class _HomeState extends State<EditBlacklist> {
         children: [
           for (var title in titles) StyledHeading(title),
         ],
+      ),
+    );
+  }
+
+  Widget _buildSearchBar() {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16, left: 16, right: 16),
+      child: SearchBar(
+        surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
+        backgroundColor: const WidgetStatePropertyAll(Colors.white),
+        hintText: 'Search for IP or URL',
+        onChanged: (value) {
+          setState(() {
+            filter = value.toLowerCase();
+          });
+        },
       ),
     );
   }

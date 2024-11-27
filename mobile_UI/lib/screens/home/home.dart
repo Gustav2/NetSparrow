@@ -14,38 +14,48 @@ class Home extends StatefulWidget {
 }
 
 class _HomeState extends State<Home> {
-  final ApiService apiService = ApiService();
-  String status = "Loading...";
-  int blockedIps = 0;
-  int speed = 0;
-  int latency = 0;
+  final ApiService _apiService = ApiService();
+  String _status = "Loading...";
+  int _blockedIps = 0;
+  int _percentageBlocked = 0;
+  int _centralServerIps = 0;
 
-  final List<String> secondSectionCards = [
+  static const List<String> _secondSectionCards = [
     'Option 1',
     'Option 2',
     'Option 3',
     'Option 4'
   ];
-  final List<String> firstSectionCards = ['Blacklist', 'Settings', 'Log', 'Support'];
+  static const List<String> _firstSectionCards = ['Blacklist', 'Settings', 'Log', 'Support'];
 
   @override
   void initState() {
     super.initState();
-    fetchFirewallData();
+    _fetchFirewallData();
   }
 
-  Future<void> fetchFirewallData() async {
+  Future<void> _fetchFirewallData() async {
+    setState(() {
+      _status = "Loading...";
+    });
+
     try {
-      final statusData = await apiService.getStatus();
-      final blockedData = await apiService.getMyBlacklist();
+      final statusData = await _apiService.getStatus();
+      final blockedData = await _apiService.getMyBlacklist();
+      final centralServerIpsData = await _apiService.getBlacklist();
+
+      if (!mounted) return;
 
       setState(() {
-        status = statusData ? 'running' : 'error';
-        blockedIps = blockedData.length;
+        _status = statusData ? 'running' : 'error';
+        _blockedIps = blockedData.length;
+        _centralServerIps = centralServerIpsData.length;
+        _percentageBlocked = ((_blockedIps / _centralServerIps) * 100).toInt();
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
-        status = "error";
+        _status = "error";
       });
     }
   }
@@ -56,7 +66,7 @@ class _HomeState extends State<Home> {
       appBar: AppBar(
         title: const StyledTitle('Home'),
         leading: IconButton(
-            onPressed: fetchFirewallData, icon: const Icon(Icons.sync)),
+            onPressed: _fetchFirewallData, icon: const Icon(Icons.sync)),
         actions: [
           IconButton(
             onPressed: () {},
@@ -82,12 +92,12 @@ class _HomeState extends State<Home> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              sectionHeading('Overview'),
+              _sectionHeading('Overview'),
               InfoCardGrid(_buildInfoCards()),
-              sectionHeading('Options'),
-              buildCardList(firstSectionCards),
-              sectionHeading('Extras'),
-              buildCardList(secondSectionCards),
+              _sectionHeading('Options'),
+              _buildCardList(_firstSectionCards),
+              _sectionHeading('Extras'),
+              _buildCardList(_secondSectionCards),
             ],
           ),
         ),
@@ -97,14 +107,14 @@ class _HomeState extends State<Home> {
 
   List<Widget> _buildInfoCards() {
     return [
-      _gridCard('Status', _getStatus(status), status, _getStatusColor(status),
+      _gridCard('Status', _getStatus(_status), _status, _getStatusColor(_status),
           'status'),
-      _gridCard('Blocked Ips', Icons.error, '$blockedIps', Colors.red,
+      _gridCard('Blocked Ips', Icons.error, '$_blockedIps', Colors.red,
           'blocked'),
       _gridCard(
-          'Speed', Icons.error, '$speed Mb/s', _getSpeedColor(40), 'speed'),
+          'Percent blocked', Icons.error, '$_percentageBlocked %', _getSpeedColor(_percentageBlocked), 'speed'),
       _gridCard(
-          'Latency', Icons.error, '$latency ms', _getLatencyColor(25), 'speed'),
+          'Central server', Icons.error, '$_centralServerIps', _getLatencyColor(_centralServerIps), 'speed'),
     ];
   }
 
@@ -114,13 +124,13 @@ class _HomeState extends State<Home> {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
-        Container(height: 40, child: StyledText(title)),
+        SizedBox(height: 40, child: StyledText(title)),
         Expanded(
           child: icon != Icons.error
-              ? Center(child: Icon(icon, size: 40, color: color))
-              : Center(child: StyledCardText(value)),
+              ? Icon(icon, size: 40, color: color)
+              : StyledCardText(value),
         ),
-        Container(
+        SizedBox(
           height: 40,
           child: Row(
             mainAxisAlignment: MainAxisAlignment.end,
@@ -141,9 +151,14 @@ class _HomeState extends State<Home> {
   }
 
   IconData _getStatus(String status) {
-    if (status == 'running') return Icons.task_alt;
-    if (status == 'error') return Icons.do_not_disturb_on;
-    return Icons.error;
+    switch (status) {
+      case 'running':
+        return Icons.task_alt;
+      case 'error':
+        return Icons.do_not_disturb_on;
+      default:
+        return Icons.error;
+    }
   }
 
   Color _getSpeedColor(int speed) {
@@ -159,26 +174,35 @@ class _HomeState extends State<Home> {
   }
 
   Color _getStatusColor(String status) {
-    if (status == 'running') return Colors.green;
-    if (status == 'error') return Colors.red;
-    return Colors.orange;
+    switch (status) {
+      case 'running':
+        return Colors.green;
+      case 'error':
+        return Colors.red;
+      default:
+        return Colors.orange;
+    }
   }
 
   Widget _getRoute(String route) {
-    if (route == 'speed') return const SpeedLog();
-    if (route == 'blocked') return const Log();
-    if (route == 'status') return const Log();
-    return const Log();
+    switch (route) {
+      case 'speed':
+        return const SpeedLog();
+      case 'blocked':
+      case 'status':
+      default:
+        return const Log();
+    }
   }
 
-  Widget sectionHeading(String title) {
+  Widget _sectionHeading(String title) {
     return Padding(
       padding: const EdgeInsets.all(16.0),
       child: StyledHeading(title),
     );
   }
 
-  Widget buildCardList(List<String> cards) {
+  Widget _buildCardList(List<String> cards) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
