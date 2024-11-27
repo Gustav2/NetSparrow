@@ -20,7 +20,6 @@
 #include <sys/types.h>
 #include <fcntl.h>
 #include <errno.h>
-#include <net/ethernet.h>  // For struct ether_header
 
 #define SNAP_LEN 1518
 #define ERRBUF_SIZE 256
@@ -29,20 +28,7 @@
 #define BATCH_SIZE 32
 #define PIPE_PATH "/tmp/packet_log_pipe" // Define the pipe path
 #define BUFFER_SIZE 256
-#define PACKET_DATA_SIZE 1500
-#define MAX_PACKET_SIZE 1515  // Define max packet size if not already defined
 
-#pragma pack(1) // Ensure no padding
-typedef struct {
-    uint32_t timestamp;          // Packet timestamp
-    uint8_t src_ip[4];           // Source IP address (IPv4)
-    uint8_t dst_ip[4];           // Destination IP address (IPv4)
-    uint16_t packet_size;        // Size of the packet
-    uint8_t protocol;            // Protocol (e.g., TCP, UDP, etc.)
-    uint8_t data[MAX_PACKET_SIZE]; // Packet payload data
-} binary_packet_t;
-#pragma pack() // Reset packing to default
- 
 typedef struct {
     pcap_t *source_handle;
     pcap_t *dest_handle;
@@ -59,42 +45,6 @@ volatile int keep_running = 1;
 
 FILE *log_file; // Global log file pointer
 int pipe_fd = -1; // Named pipe file descriptor
-
-ssize_t write_exact(int fd, const void *buf, size_t count) {
-    size_t total_written = 0;
-    while (total_written < count) {
-        ssize_t bytes_written = write(fd, buf + total_written, count - total_written);
-
-        if (bytes_written == -1) {
-            if (errno == EAGAIN) {
-                // Wait for the pipe to be ready for writing
-                fd_set writefds;
-                FD_ZERO(&writefds);
-                FD_SET(fd, &writefds);
-                struct timeval timeout = {1, 0};  // 1 second timeout
-
-                int ret = select(fd + 1, NULL, &writefds, NULL, &timeout);
-                if (ret == -1) {
-                    // Select failed
-                    return -1;
-                } else if (ret == 0) {
-                    // Timeout occurred
-                    return -1;
-                }
-                // Pipe is ready, retry writing
-                continue;
-            } else {
-                // Handle other errors like EINTR or EIO
-                return -1;
-            }
-        }
-
-        total_written += bytes_written;
-    }
-
-    return total_written;
-}
-
 
 
 // Function to calculate checksum
@@ -267,30 +217,70 @@ void *monitor_blacklist(void *arg) {
     return NULL;
 }
 
-void packet_to_pipe(const uint8_t *packet, size_t packet_len, int pipe_fd) {
-    binary_packet_t bin_pkt;  // Use the defined structure
-    memset(&bin_pkt, 0, sizeof(binary_packet_t));  // Clear the structure
+// Function to recreate and reopen the named pipe if it is missing or broken
+void recreate_pipe() {
+    close(pipe_fd);
+    pipe_fd = -1;
 
-    // Populate binary packet fields
-    bin_pkt.timestamp = (uint32_t)time(NULL);
+    // Re-create the named pipe if it was deleted
+    if (mkfifo(PIPE_PATH, 0666) == -1 && errno != EEXIST) {
+        fprintf(log_file, "Error re-creating pipe: %s\n", strerror(errno));
+        fflush(log_file);
+        return;
+    }
 
-    const struct ip *ip_hdr = (struct ip *)(packet + sizeof(struct ether_header));
-    memcpy(bin_pkt.src_ip, &ip_hdr->ip_src, 4);  // Copy source IP
-    memcpy(bin_pkt.dst_ip, &ip_hdr->ip_dst, 4);  // Copy destination IP
-
-    bin_pkt.packet_size = (uint16_t)(packet_len > MAX_PACKET_SIZE ? MAX_PACKET_SIZE : packet_len);
-    bin_pkt.protocol = ip_hdr->ip_p;
-
-    memset(bin_pkt.data, 0, MAX_PACKET_SIZE);  // Clear the data array
-    memcpy(bin_pkt.data, packet, bin_pkt.packet_size);  // Copy packet data
-
-    // Write the binary packet to the pipe
-    if (write_exact(pipe_fd, &bin_pkt, sizeof(binary_packet_t)) == -1) {
-        fprintf(stderr, "Error writing to pipe: %s\n", strerror(errno));
-        close(pipe_fd);
-        exit(EXIT_FAILURE);
+    // Reopen the pipe
+    pipe_fd = open(PIPE_PATH, O_WRONLY | O_NONBLOCK);
+    if (pipe_fd == -1) {
+        fprintf(log_file, "Error reopening pipe: %s\n", strerror(errno));
+        fflush(log_file);
+    } else {
+        fprintf(log_file, "Pipe successfully re-created and reopened\n");
+        fflush(log_file);
     }
 }
+
+
+void packet_to_pipe(const u_char *packet, int packet_len) {
+    if (pipe_fd == -1) {
+        fprintf(log_file, "Pipe not open for writing\n");
+        fflush(log_file);
+        recreate_pipe();
+        return;
+    }
+
+    struct ip *ip_hdr = (struct ip *)(packet + 14); // Skip Ethernet header
+    char src_ip[IP_STR_LEN], dst_ip[IP_STR_LEN];
+    inet_ntop(AF_INET, &(ip_hdr->ip_src), src_ip, IP_STR_LEN);
+    inet_ntop(AF_INET, &(ip_hdr->ip_dst), dst_ip, IP_STR_LEN);
+
+    const char *protocol = (ip_hdr->ip_p == IPPROTO_TCP) ? "TCP" :
+                           (ip_hdr->ip_p == IPPROTO_UDP) ? "UDP" :
+                           (ip_hdr->ip_p == IPPROTO_ICMP) ? "ICMP" : "Other";
+
+    char data[BUFFER_SIZE];
+    int bytes_written = snprintf(data, sizeof(data),
+                                 "Source IP: %s, Destination IP: %s, Protocol: %s, Packet Length: %d\n",
+                                 src_ip, dst_ip, protocol, packet_len);
+
+    ssize_t result = write(pipe_fd, data, bytes_written);
+    if (result == -1) {
+        if (errno == EAGAIN) {
+            fprintf(log_file, "Pipe write would block, skipping packet\n");
+        } else if (errno == EPIPE || errno == ENOENT) {
+            fprintf(log_file, "Pipe broken or missing: %s\n", strerror(errno));
+            recreate_pipe();  // Attempt to recover by re-creating and reopening the pipe
+        } else {
+            fprintf(log_file, "Error writing to pipe: %s\n", strerror(errno));
+        }
+        fflush(log_file);
+    } else if (result < bytes_written) {
+        fprintf(log_file, "Partial write to pipe, written: %zd out of %d bytes\n", result, bytes_written);
+        fflush(log_file);
+    }
+}
+
+
 
 // Forward packets between interfaces with blacklist filtering
 void *forward_packets(void *args) {
@@ -300,12 +290,6 @@ void *forward_packets(void *args) {
 
     struct pcap_pkthdr header;
     const u_char *packet;
-    int pipe_fd = open(PIPE_PATH, O_WRONLY | O_NONBLOCK);
-
-    if (pipe_fd == -1) {
-        perror("Error opening pipe");
-        return NULL;
-    }
 
     while (keep_running) {
         packet = pcap_next(source_handle, &header);
@@ -330,8 +314,7 @@ void *forward_packets(void *args) {
         }
 
         // Log packet data to the ML system via stdout
-        packet_to_pipe(packet, header.len, pipe_fd);
-
+        packet_to_pipe(packet, header.len);
 
         // Forward the packet
         if (pcap_sendpacket(dest_handle, packet, header.len) != 0) {
@@ -340,7 +323,6 @@ void *forward_packets(void *args) {
         }
     }
 
-    close(pipe_fd);
     return NULL;
 }
 
@@ -400,39 +382,29 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
-      // Create the named pipe
-    if (mkfifo(PIPE_PATH, 0666) == -1 && errno != EEXIST) {
-        perror("Error creating pipe");
-        return 1;
+     // Create the named pipe and handle potential errors
+if (mkfifo(PIPE_PATH, 0666) == -1) {
+    if (errno != EEXIST) {
+        fprintf(stderr, "Error creating named pipe '%s': %s\n", PIPE_PATH, strerror(errno));
+        exit(EXIT_FAILURE);
+    } else {
+        fprintf(log_file, "Named pipe '%s' already exists, proceeding...\n", PIPE_PATH);
+        fflush(log_file);
     }
-
+}
     FILE *pipe_file = fopen(PIPE_PATH, "w");
     if (pipe_file == NULL) {
         perror("Error opening pipe");
         return 1;
     }
 
-    // Open the pipe for writing
+    // Open the pipe for writing in non-blocking mode
     pipe_fd = open(PIPE_PATH, O_WRONLY | O_NONBLOCK);
     if (pipe_fd == -1) {
-        fprintf(stderr, "Error opening pipe: %s\n", strerror(errno));
+        fprintf(stderr, "Error opening named pipe '%s': %s\n", PIPE_PATH, strerror(errno));
+        fclose(log_file);  // Clean up
         exit(EXIT_FAILURE);
-    }
-
-    
- // Simulating packet data to send to the pipe
-    const char *packet_data = "Example packet data to write to the pipe.\n";
-    size_t data_len = strlen(packet_data) + 1; // Including the null-terminator
-
-    // Write packet data to the pipe
-    if (write_exact(pipe_fd, packet_data, data_len) == -1) {
-        fprintf(stderr, "Error writing to pipe: %s\n", strerror(errno));
-        close(pipe_fd);
-        exit(EXIT_FAILURE);
-    }
-
-    printf("Data written to the pipe successfully.\n");
-
+}
 
 
     // Get initial modification time
