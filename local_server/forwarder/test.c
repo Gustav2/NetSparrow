@@ -30,15 +30,19 @@
 #define BUFFER_SIZE 256
 #define PACKET_DATA_SIZE 1500
 
-// Binary packet structure: matches the Python struct
+#pragma pack(1) // Disable padding
+
 typedef struct {
-    uint32_t timestamp;              // Timestamp in seconds since epoch
-    uint8_t src_ip[4];               // Source IP address (4 bytes)
-    uint8_t dst_ip[4];               // Destination IP address (4 bytes)
-    uint16_t packet_size;            // Packet size (max 1500)
-    uint8_t protocol;                // Protocol number (TCP=6, UDP=17, etc.)
-    uint8_t data[PACKET_DATA_SIZE];  // Placeholder data (zero-filled)
+    uint32_t timestamp;              // 4 bytes
+    uint8_t src_ip[4];               // 4 bytes
+    uint8_t dst_ip[4];               // 4 bytes
+    uint16_t packet_size;            // 2 bytes
+    uint8_t protocol;                // 1 byte
+    uint8_t data[PACKET_DATA_SIZE];  // 1500 bytes
 } binary_packet_t;
+
+#pragma pack() // Restore default alignment
+
 
 typedef struct {
     pcap_t *source_handle;
@@ -228,37 +232,23 @@ void *monitor_blacklist(void *arg) {
     return NULL;
 }
 
-// Log packet details to the named pipe in binary format
 void packet_to_pipe(const u_char *packet, int packet_len) {
     struct ip *ip_hdr = (struct ip *)(packet + 14); // Skip Ethernet header
     binary_packet_t binary_packet;
 
-    // Fill in the timestamp
+    // Fill structure
     binary_packet.timestamp = (uint32_t)time(NULL);
-
-    // Convert IPs to binary format
     memcpy(binary_packet.src_ip, &(ip_hdr->ip_src), sizeof(binary_packet.src_ip));
     memcpy(binary_packet.dst_ip, &(ip_hdr->ip_dst), sizeof(binary_packet.dst_ip));
-
-    // Fill in packet size (capped at 1500)
     binary_packet.packet_size = (uint16_t)(packet_len > PACKET_DATA_SIZE ? PACKET_DATA_SIZE : packet_len);
-
-    // Fill in protocol (default to 0 for unknown protocols)
     binary_packet.protocol = (uint8_t)ip_hdr->ip_p;
-
-    // Zero-fill data
     memset(binary_packet.data, 0, PACKET_DATA_SIZE);
 
-    // Write binary packet to pipe
+    // Write to pipe
     if (pipe_fd != -1) {
         ssize_t bytes_written = write(pipe_fd, &binary_packet, sizeof(binary_packet));
-        if (bytes_written == -1) {
-            if (errno != EAGAIN) {
-                fprintf(log_file, "Error writing to pipe: %s\n", strerror(errno));
-                fflush(log_file);
-            }
-        } else if (bytes_written != sizeof(binary_packet)) {
-            fprintf(log_file, "Incomplete write to pipe: expected %ld bytes, wrote %ld bytes\n",
+        if (bytes_written != sizeof(binary_packet)) {
+            fprintf(log_file, "Error: Incomplete write. Expected %ld, wrote %ld\n",
                     sizeof(binary_packet), bytes_written);
             fflush(log_file);
         }
@@ -385,6 +375,7 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "Error opening pipe: %s\n", strerror(errno));
         exit(EXIT_FAILURE);
     }
+    printf("Size of binary_packet_t: %zu\n", sizeof(binary_packet_t));
 
     // Get initial modification time
     last_modified_time = get_file_modification_time(blacklist_file_path);
