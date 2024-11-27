@@ -8,7 +8,7 @@ import logging
 from pathlib import Path
 
 centralToken = "Token f990deebf6b6f888560a4b2bc131989496a55030"
-myIP = "172.26.120.53"
+myIP = "172"
 
 PIPE_NAME = "/shared/analysis_pipe"
 FORMAT = "=4s4sf"
@@ -28,21 +28,27 @@ tempSettings = {
 
 def pullBlacklist(centralToken):
     while True:
-        url = "https://netsparrow.viktorkirk.com/settings/myblacklist/"
-        headers = {
-            "Authorization": str(centralToken),
-            "Content-Type": "application/json"
-        }
+        try:
+            url = "https://netsparrow.viktorkirk.com/settings/myblacklist/"
+            headers = {
+                "Authorization": str(centralToken),
+                "Content-Type": "application/json"
+            }
+            logging.info("URL Set...")
 
-        response = requests.get(url, headers=headers)
-        print(response.json())
-        blacklist_data = response.json()["myblacklists"]
+            response = requests.get(url, headers=headers)
+            logging.info(response.json())
+            blacklist_data = response.json()["myblacklists"]
 
-        with open(blacklist_path, 'w', newline='') as file:
-            for i in blacklist_data:
-                ip = str(i["blacklist_entry__capturedpacket_entry__ip"])
-                file.write(ip + "\n")
-                #url = str(i["blacklist_entry__capturedpacket_entry__url"])
+            with open(blacklist_path, 'w', newline='') as file:
+                for i in blacklist_data:
+                    ip = str(i["blacklist_entry__capturedpacket_entry__ip"])
+                    file.write(ip + "\n")
+                    #url = str(i["blacklist_entry__capturedpacket_entry__url"])
+            logging.info("Finished writing new blacklist")
+
+        except Exception:
+            logging.info("Failed to pull blacklist, retrying...")
 
         time.sleep(5)
 
@@ -77,7 +83,7 @@ def read_from_pipe():
                 source_ip_str = ip_bytes_to_string(source_ip)
                 dest_ip_str = ip_bytes_to_string(dest_ip)
 
-                if confidence > 0.9:
+                if confidence > 0.5:
                     if source_ip_str == myIP:
                         data = {
                             "ip": dest_ip_str
