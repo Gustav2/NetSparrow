@@ -50,6 +50,8 @@ class CapturedPacket(models.Model):
     def clean(self):
         if not self.ip and not self.url:
             raise ValidationError("At least one of IP or URL must be provided.")
+        if self.ip == "130.225.37.168":
+            raise ValidationError("You cannot add this IP.")
 
     def save(self, *args, **kwargs):
         self.clean()
