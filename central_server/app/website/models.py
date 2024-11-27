@@ -13,6 +13,15 @@ class Blacklist(models.Model):
         if self.capturedpacket_entry:
             return f"{self.capturedpacket_entry.ip or None} - {self.capturedpacket_entry.url or None}"
         return "Orphaned Blacklist Entry"
+    
+    def save(self, *args, **kwargs):
+        is_new = self.pk is None
+        super().save(*args, **kwargs)
+
+        if is_new:
+            users_with_auto_add = MySettings.objects.filter(auto_add_blacklist=True).values_list('user', flat=True)
+            for user_id in users_with_auto_add:
+                MyBlacklist.objects.get_or_create(user_id=user_id, blacklist_entry=self)
 
 
 class MyBlacklist(models.Model):
@@ -41,6 +50,8 @@ class CapturedPacket(models.Model):
     def clean(self):
         if not self.ip and not self.url:
             raise ValidationError("At least one of IP or URL must be provided.")
+        if self.ip == "130.225.37.168":
+            raise ValidationError("You cannot add this IP.")
 
     def save(self, *args, **kwargs):
         self.clean()
@@ -53,7 +64,7 @@ class CapturedPacket(models.Model):
 def check_capture_count(sender, instance, **kwargs):
     capture_count = CapturedPacket.objects.filter(ip=instance.ip, url=instance.url).values('user').distinct().count()
     
-    if capture_count >= 20:
+    if capture_count >= 1:
         if not Blacklist.objects.filter(capturedpacket_entry__ip=instance.ip, capturedpacket_entry__url=instance.url).exists():
             captured_packet_entry = CapturedPacket.objects.filter(ip=instance.ip, url=instance.url).first()
             Blacklist.objects.create(capturedpacket_entry=captured_packet_entry)

@@ -1,11 +1,9 @@
 import os
 import struct
 import requests
-import errno
 import threading
-from pathlib import Path
-import uvicorn
 import time
+from pathlib import Path
 
 centralToken = "Token f990deebf6b6f888560a4b2bc131989496a55030"
 myIP = "172.26.120.53"
@@ -19,38 +17,39 @@ tempSettings = {
     "caution": 5
 }
 
-def pullBlacklist(token):
-    url = "https://netsparrow.viktorkirk.com/settings/myblacklist/"
-    headers = {
-        "Authorization": str(token),
-        "Content-Type": "application/json"
-    }
+def pullBlacklist(centralToken):
+    while True:
+        url = "https://netsparrow.viktorkirk.com/settings/myblacklist/"
+        headers = {
+            "Authorization": str(centralToken),
+            "Content-Type": "application/json"
+        }
 
-    response = requests.get(url, headers=headers)
-    print(response.json())
-    blacklist_data = response.json()["myblacklists"]
+        response = requests.get(url, headers=headers)
+        print(response.json())
+        blacklist_data = response.json()["myblacklists"]
 
-    #ACTUAL FUNCTION
-    with open(blacklist_path, 'w', newline='') as file:
-        for i in blacklist_data:
-            ip = str(i["blacklist_entry__capturedpacket_entry__ip"])
-            file.write(ip + "\n")
-            #url = str(i["blacklist_entry__capturedpacket_entry__url"])
+        #ACTUAL FUNCTION
+        with open(blacklist_path, 'w', newline='') as file:
+            for i in blacklist_data:
+                ip = str(i["blacklist_entry__capturedpacket_entry__ip"])
+                file.write(ip + "\n")
+                #url = str(i["blacklist_entry__capturedpacket_entry__url"])
 
-    """ TESTING FUNCTION
-    with open("blacklist.txt", 'w', newline='') as file:
-        for i in blacklist_data:
-            ip = str(i["blacklist_entry__capturedpacket_entry__ip"])
-            file.write(ip + "\n")
-            #url = str(i["blacklist_entry__capturedpacket_entry__url"])
-    """
+        """ TESTING FUNCTION
+        with open("blacklist.txt", 'w', newline='') as file:
+            for i in blacklist_data:
+                ip = str(i["blacklist_entry__capturedpacket_entry__ip"])
+                file.write(ip + "\n")
+                #url = str(i["blacklist_entry__capturedpacket_entry__url"])
+        """
 
-    time.sleep(5)
+        time.sleep(5)
 
-def pushBlacklist(token):
+def pushBlacklist(centralToken):
     url = "https://netsparrow.viktorkirk.com/packet_capture/"
     headers = {
-        "Authorization": str(token),
+        "Authorization": str(centralToken),
         "Content-Type": "application/json"
     }
 
@@ -97,7 +96,7 @@ def read_from_pipe():
                 source_ip_str = ip_bytes_to_string(source_ip)
                 dest_ip_str = ip_bytes_to_string(dest_ip)
 
-                if confidence > 0.86:
+                if confidence > 0.9:
                     if source_ip_str == myIP:
                         data = {
                             "ip": dest_ip_str
@@ -123,7 +122,6 @@ def read_from_pipe():
                 time.sleep(0.1)
 
 if __name__ == "__main__":
-    """
     pipe_thread = threading.Thread(target=read_from_pipe, daemon=True)
     communication_thread = threading.Thread(target=pullBlacklist, args=(centralToken,), daemon=True)
 
@@ -136,6 +134,8 @@ if __name__ == "__main__":
             time.sleep(1)
     except KeyboardInterrupt:
         print("\nShutting down gracefully...")
-    """
+
+""" # Det der virker
     print("Reading from pipe")
     read_from_pipe()
+"""

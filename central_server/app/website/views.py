@@ -186,6 +186,9 @@ def packet_capture(request):
             if not ip and not url:
                 return JsonResponse({"error": "IP or URL is required."}, status=400)
 
+            if CapturedPacket.objects.filter(user=user, ip=ip, url=url).exists():
+                return JsonResponse({"error": "Duplicate packet for this user."}, status=400)
+
             captured_packet = CapturedPacket.objects.create(
                 user=user,
                 ip=ip,
