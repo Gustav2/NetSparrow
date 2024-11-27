@@ -29,21 +29,16 @@
 #define PIPE_PATH "/tmp/packet_log_pipe" // Define the pipe path
 #define BUFFER_SIZE 256
 #define PACKET_DATA_SIZE 1500
-
-#pragma pack(1) // Disable padding
-
-
-#pragma pack(push, 1) // Ensure no padding
-typedef struct binary_packet_t {
-    uint32_t timestamp;     // 4 bytes
-    uint8_t src_ip[4];      // 4 bytes
-    uint8_t dst_ip[4];      // 4 bytes
-    uint16_t packet_size;   // 2 bytes
-    uint8_t protocol;       // 1 byte
-    uint8_t data[1500];     // 1500 bytes
+#define MAX_PACKET_SIZE 1500
+// Structure to represent the binary packet
+typedef struct {
+    uint32_t timestamp;
+    uint8_t src_ip[4];
+    uint8_t dst_ip[4];
+    uint16_t packet_size;
+    uint8_t protocol;
+    uint8_t data[PACKET_DATA_SIZE];
 } binary_packet_t;
-#pragma pack(pop)
-
  
 typedef struct {
     pcap_t *source_handle;
@@ -61,6 +56,19 @@ volatile int keep_running = 1;
 
 FILE *log_file; // Global log file pointer
 int pipe_fd = -1; // Named pipe file descriptor
+
+// Function to write an exact number of bytes to the pipe
+ssize_t write_exact(int fd, const void *buf, size_t count) {
+    size_t total_written = 0;
+    while (total_written < count) {
+        ssize_t bytes_written = write(fd, buf + total_written, count - total_written);
+        if (bytes_written <= 0) {
+            return -1;  // Error or EOF
+        }
+        total_written += bytes_written;
+    }
+    return total_written;
+}
 
 
 // Function to calculate checksum
@@ -233,44 +241,35 @@ void *monitor_blacklist(void *arg) {
     return NULL;
 }
 
-int write_exact(int fd, const void *buf, size_t count) {
-    const char *buffer = (const char *)buf;
-    size_t total_written = 0;
-
-    while (total_written < count) {
-        ssize_t written = write(fd, buffer + total_written, count - total_written);
-        if (written == -1) {
-            if (errno == EINTR) {
-                continue; // Interrupted, try again
-            } else {
-                return -1; // Fatal error
-            }
-        }
-        total_written += written;
+// Function to send packet details to the pipe in the required format
+void packet_to_pipe(const u_char *packet, int packet_len, int pipe_fd) {
+    struct ip *ip_hdr = (struct ip *)(packet + 14);  // Skip Ethernet header
+    
+    // Create the binary packet structure
+    binary_packet_t bin_pkt;
+    memset(&bin_pkt, 0, sizeof(binary_packet_t));  // Clear structure
+    
+    // Set timestamp (current time)
+    bin_pkt.timestamp = (uint32_t)time(NULL);
+    
+    // Convert source and destination IPs to byte arrays
+    memcpy(bin_pkt.src_ip, &ip_hdr->ip_src, 4);
+    memcpy(bin_pkt.dst_ip, &ip_hdr->ip_dst, 4);
+    
+    // Set packet size (limited to 1500 bytes)
+    bin_pkt.packet_size = (uint16_t)(packet_len > MAX_PACKET_SIZE ? MAX_PACKET_SIZE : packet_len);
+    
+    // Set protocol (TCP, UDP, ICMP, etc.)
+    bin_pkt.protocol = ip_hdr->ip_p;
+    
+    // Optional: Fill data array (you can fill with real packet data or zeroes)
+    memset(bin_pkt.data, 0, MAX_PACKET_SIZE);  // Filler data (you can adjust this part as needed)
+    
+    // Write the packet to the pipe
+    ssize_t bytes_written = write_exact(pipe_fd, &bin_pkt, sizeof(binary_packet_t));
+    if (bytes_written == -1) {
+        perror("Error writing to pipe");
     }
-    return 0; // Success
-}
-
-
-void packet_to_pipe(const u_char *packet, int packet_len) {
-    struct ip *ip_hdr = (struct ip *)(packet + 14); // Skip Ethernet header
-    char src_ip[IP_STR_LEN], dst_ip[IP_STR_LEN];
-    inet_ntop(AF_INET, &(ip_hdr->ip_src), src_ip, IP_STR_LEN);
-    inet_ntop(AF_INET, &(ip_hdr->ip_dst), dst_ip, IP_STR_LEN);
-    const char *protocol = (ip_hdr->ip_p == IPPROTO_TCP) ? "TCP" :
-                           (ip_hdr->ip_p == IPPROTO_UDP) ? "UDP" :
-                           (ip_hdr->ip_p == IPPROTO_ICMP) ? "ICMP" : "Other";
-    char data[256];
-    int bytes_written = snprintf(data, sizeof(data),
-                                 "Source IP: %s, Destination IP: %s, Protocol: %s, Packet Length: %d\n",
-                                 src_ip, dst_ip, protocol, packet_len);
-
-    if (pipe_fd != -1) {
-        if (write_exact(pipe_fd, data, bytes_written) == -1) {
-            fprintf(log_file, "Error writing to pipe: %s\n", strerror(errno));
-            fflush(log_file);
-}
-}
 }
 
 // Forward packets between interfaces with blacklist filtering
@@ -281,6 +280,12 @@ void *forward_packets(void *args) {
 
     struct pcap_pkthdr header;
     const u_char *packet;
+    int pipe_fd = open(PIPE_PATH, O_WRONLY | O_NONBLOCK);
+
+    if (pipe_fd == -1) {
+        perror("Error opening pipe");
+        return NULL;
+    }
 
     while (keep_running) {
         packet = pcap_next(source_handle, &header);
@@ -305,7 +310,7 @@ void *forward_packets(void *args) {
         }
 
         // Log packet data to the ML system via stdout
-        packet_to_pipe(packet, header.len);
+        packet_to_pipe(packet, header.len, pipe_fd);
 
 
         // Forward the packet
@@ -315,6 +320,7 @@ void *forward_packets(void *args) {
         }
     }
 
+    close(pipe_fd);
     return NULL;
 }
 
@@ -394,6 +400,20 @@ int main(int argc, char *argv[]) {
     }
 
     
+ // Simulating packet data to send to the pipe
+    const char *packet_data = "Example packet data to write to the pipe.\n";
+    size_t data_len = strlen(packet_data) + 1; // Including the null-terminator
+
+    // Write packet data to the pipe
+    if (write_exact(pipe_fd, packet_data, data_len) == -1) {
+        fprintf(stderr, "Error writing to pipe: %s\n", strerror(errno));
+        close(pipe_fd);
+        exit(EXIT_FAILURE);
+    }
+
+    printf("Data written to the pipe successfully.\n");
+
+
 
     // Get initial modification time
     last_modified_time = get_file_modification_time(blacklist_file_path);
