@@ -57,6 +57,12 @@ def check_capture_count(sender, instance, **kwargs):
         if not Blacklist.objects.filter(capturedpacket_entry__ip=instance.ip, capturedpacket_entry__url=instance.url).exists():
             captured_packet_entry = CapturedPacket.objects.filter(ip=instance.ip, url=instance.url).first()
             Blacklist.objects.create(capturedpacket_entry=captured_packet_entry)
+            
+            users_with_auto_add = MySettings.objects.filter(auto_add_blacklist=True).values_list('user', flat=True)
+            for user_id in users_with_auto_add:
+                MyBlacklist.objects.get_or_create(user_id=user_id, blacklist_entry=captured_packet_entry)
+
+
 
 class MySettings(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='settings')
