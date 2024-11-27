@@ -26,11 +26,19 @@
 #define BLACKLIST_MAX 2048
 #define IP_STR_LEN 16
 #define BATCH_SIZE 32
-#define PIPE_PATH "/tmp/packet_log_pipe"
+#define PIPE_PATH "/shared/packet_log_pipe" // Define the pipe path
 #define BUFFER_SIZE 256
-#define PIPE_OPEN_RETRY_MAX 10
-#define PIPE_OPEN_RETRY_DELAY 1
-#define MAX_PACKET_SIZE 1500
+#define PACKET_DATA_SIZE 1500
+
+// Binary packet structure: matches the Python struct
+typedef struct {
+    uint32_t timestamp;              // Timestamp in seconds since epoch
+    uint8_t src_ip[4];               // Source IP address (4 bytes)
+    uint8_t dst_ip[4];               // Destination IP address (4 bytes)
+    uint16_t packet_size;            // Packet size (max 1500)
+    uint8_t protocol;                // Protocol number (TCP=6, UDP=17, etc.)
+    uint8_t data[PACKET_DATA_SIZE];  // Placeholder data (zero-filled)
+} binary_packet_t;
 
 typedef struct {
     pcap_t *source_handle;
@@ -46,20 +54,8 @@ char blacklist[BLACKLIST_MAX][IP_STR_LEN];
 int blacklist_count = 0;
 volatile int keep_running = 1;
 
-#pragma pack(1) // Ensure no padding
-struct binary_packet {
-    uint32_t timestamp;    // 4 bytes
-    uint8_t src_ip[4];     // 4 bytes
-    uint8_t dst_ip[4];     // 4 bytes
-    uint16_t packet_size;  // 2 bytes
-    uint8_t protocol;      // 1 byte
-    uint8_t data[1500];    // 1500 bytes
-};
-#pragma pack()
-
 FILE *log_file; // Global log file pointer
 int pipe_fd = -1; // Named pipe file descriptor
-int open_pipe_with_retry();
 
 
 // Function to calculate checksum
@@ -75,42 +71,6 @@ unsigned short checksum(void *b, int len) {
     sum = (sum >> 16) + (sum & 0xFFFF);
     sum += (sum >> 16);
     return ~sum;
-}
-
-// Add this function prototype before its implementation
-int open_pipe_with_retry() {
-    int retry_count = 0;
-    int fd = -1;
-
-    while (retry_count < PIPE_OPEN_RETRY_MAX) {
-        // Try to open the pipe in non-blocking write mode
-        fd = open(PIPE_PATH, O_WRONLY | O_NONBLOCK);
-        
-        if (fd != -1) {
-            fprintf(log_file, "Pipe opened successfully on attempt %d\n", retry_count + 1);
-            fflush(log_file);
-            return fd;
-        }
-
-        // Log the error
-        fprintf(log_file, "Error opening pipe (attempt %d): %s\n", 
-                retry_count + 1, strerror(errno));
-        fflush(log_file);
-
-        // If no reader is available, wait and retry
-        if (errno == ENXIO) {
-            sleep(PIPE_OPEN_RETRY_DELAY);
-            retry_count++;
-        } else {
-            // For other errors, break immediately
-            break;
-        }
-    }
-
-    // If we couldn't open the pipe after retries
-    fprintf(log_file, "Failed to open pipe after %d attempts\n", retry_count);
-    fflush(log_file);
-    return -1;
 }
 
 // Send RST to terminate original connection
@@ -268,82 +228,44 @@ void *monitor_blacklist(void *arg) {
     return NULL;
 }
 
-void create_binary_packet(struct binary_packet *packet, const char *src_ip_str, const char *dst_ip_str, 
-                           const char *protocol_str, int packet_len) {
-    // Set timestamp
-    packet->timestamp = (uint32_t)time(NULL);
+// Log packet details to the named pipe in binary format
+void packet_to_pipe(const u_char *packet, int packet_len) {
+    struct ip *ip_hdr = (struct ip *)(packet + 14); // Skip Ethernet header
+    binary_packet_t binary_packet;
 
-    // Convert source IP to bytes
-    if (inet_pton(AF_INET, src_ip_str, packet->src_ip) != 1) {
-        fprintf(stderr, "Invalid source IP: %s\n", src_ip_str);
-        memset(packet->src_ip, 0, sizeof(packet->src_ip));
-    }
+    // Fill in the timestamp
+    binary_packet.timestamp = (uint32_t)time(NULL);
 
-    // Convert destination IP to bytes
-    if (inet_pton(AF_INET, dst_ip_str, packet->dst_ip) != 1) {
-        fprintf(stderr, "Invalid destination IP: %s\n", dst_ip_str);
-        memset(packet->dst_ip, 0, sizeof(packet->dst_ip));
-    }
+    // Convert IPs to binary format
+    memcpy(binary_packet.src_ip, &(ip_hdr->ip_src), sizeof(binary_packet.src_ip));
+    memcpy(binary_packet.dst_ip, &(ip_hdr->ip_dst), sizeof(binary_packet.dst_ip));
 
-    // Set packet size
-    if (packet_len <= 0 || packet_len > 1500) {
-        packet_len = 64; // Default size
-    }
-    packet->packet_size = (uint16_t)packet_len;
+    // Fill in packet size (capped at 1500)
+    binary_packet.packet_size = (uint16_t)(packet_len > PACKET_DATA_SIZE ? PACKET_DATA_SIZE : packet_len);
 
-    // Set protocol
-    if (strcmp(protocol_str, "TCP") == 0) {
-        packet->protocol = 6; // TCP protocol number
-    } else if (strcmp(protocol_str, "UDP") == 0) {
-        packet->protocol = 17; // UDP protocol number
-    } else if (strcmp(protocol_str, "ICMP") == 0) {
-        packet->protocol = 1; // ICMP protocol number
-    } else {
-        packet->protocol = 0; // Unknown protocol
-    }
+    // Fill in protocol (default to 0 for unknown protocols)
+    binary_packet.protocol = (uint8_t)ip_hdr->ip_p;
 
-    // Fill data with zeros
-    memset(packet->data, 0, sizeof(packet->data));
-}
+    // Zero-fill data
+    memset(binary_packet.data, 0, PACKET_DATA_SIZE);
 
-// Modify the function to be more flexible
-void packet_to_pipe(const void *packet, int packet_len) {
-    // If pipe is not open, try to reopen it
-    if (pipe_fd == -1) {
-        pipe_fd = open_pipe_with_retry();
-        if (pipe_fd == -1) {
-            return; // Cannot write to pipe
+    // Write binary packet to pipe
+    if (pipe_fd != -1) {
+        ssize_t bytes_written = write(pipe_fd, &binary_packet, sizeof(binary_packet));
+        if (bytes_written == -1) {
+            if (errno != EAGAIN) {
+                fprintf(log_file, "Error writing to pipe: %s\n", strerror(errno));
+                fflush(log_file);
+            }
+        } else if (bytes_written != sizeof(binary_packet)) {
+            fprintf(log_file, "Incomplete write to pipe: expected %ld bytes, wrote %ld bytes\n",
+                    sizeof(binary_packet), bytes_written);
+            fflush(log_file);
         }
     }
-
-    // Prepare packet envelope
-    struct {
-        int length;
-        unsigned char packet_data[SNAP_LEN];
-    } packet_envelope;
-
-    // Ensure we don't exceed our predefined max packet length
-    packet_envelope.length = packet_len <= SNAP_LEN ? packet_len : SNAP_LEN;
-    memcpy(packet_envelope.packet_data, packet, packet_envelope.length);
-
-    ssize_t result = write(pipe_fd, &packet_envelope, sizeof(int) + packet_envelope.length);
-    if (result == -1) {
-        // Handle write errors
-        if (errno == EAGAIN || errno == EWOULDBLOCK) {
-            fprintf(log_file, "Pipe write would block\n");
-        } else if (errno == EPIPE) {
-            close(pipe_fd);
-            pipe_fd = -1;
-            fprintf(log_file, "Pipe broken, will attempt to reopen\n");
-        } else {
-            fprintf(log_file, "Pipe write error: %s\n", strerror(errno));
-        }
-        fflush(log_file);
-    } else {
-        fprintf(log_file, "Binary packet written to pipe (%d bytes)\n", packet_envelope.length);
-        fflush(log_file);
-    }
 }
+
+
 
 // Forward packets between interfaces with blacklist filtering
 void *forward_packets(void *args) {
@@ -376,12 +298,8 @@ void *forward_packets(void *args) {
             //continue; // Skip forwarding
         }
 
-        // Create a binary_packet
-        struct binary_packet binary_pkt;
-        create_binary_packet(&binary_pkt, src_ip, dst_ip, "TCP", header.len);
-
         // Log packet data to the ML system via stdout
-        packet_to_pipe(&binary_pkt, pipe_fd);  // Pass the binary packet instead of raw packet
+        packet_to_pipe(packet, header.len);
 
         // Forward the packet
         if (pcap_sendpacket(dest_handle, packet, header.len) != 0) {
@@ -455,7 +373,6 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-
     FILE *pipe_file = fopen(PIPE_PATH, "w");
     if (pipe_file == NULL) {
         perror("Error opening pipe");
@@ -468,13 +385,6 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "Error opening pipe: %s\n", strerror(errno));
         exit(EXIT_FAILURE);
     }
-
-    if (pipe_fd == -1) {
-    perror("Error opening pipe");
-    return 1;
-}
-
-
 
     // Get initial modification time
     last_modified_time = get_file_modification_time(blacklist_file_path);
