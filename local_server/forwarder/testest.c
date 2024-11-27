@@ -6,10 +6,18 @@
 #include <sys/ioctl.h>
 #include <net/if.h>
 #include <unistd.h>
+#include <sched.h>
 #include <arpa/inet.h>
 #include <netinet/ip.h>
 #include <signal.h>
+#include <netinet/tcp.h>
+#include <linux/if_packet.h>
+#include <sys/mman.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
 #include <sys/stat.h>
+#include <time.h>
+#include <sys/types.h>
 #include <fcntl.h>
 #include <errno.h>
 
@@ -17,15 +25,28 @@
 #define ERRBUF_SIZE 256
 #define BLACKLIST_MAX 2048
 #define IP_STR_LEN 16
-#define PIPE_PATH "/tmp/packet_log_pipe"
+#define BATCH_SIZE 32
+#define PIPE_PATH "/shared/packet_log_pipe" // Define the pipe path
+#define BUFFER_SIZE 256
+#define PACKET_DATA_SIZE 1500
+#define MAX_PACKET_SIZE 1500
 
+// Structure to represent the binary packet
+typedef struct {
+    uint32_t timestamp;
+    uint8_t src_ip[4];
+    uint8_t dst_ip[4];
+    uint16_t packet_size;
+    uint8_t protocol;
+    uint8_t data[PACKET_DATA_SIZE];
+} binary_packet_t;
+ 
 typedef struct {
     pcap_t *source_handle;
     pcap_t *dest_handle;
     int mtu;
 } forwarder_args_t;
 
-// Global variables
 char *blacklist_file_path;
 pthread_mutex_t blacklist_mutex = PTHREAD_MUTEX_INITIALIZER;
 time_t last_modified_time = 0;
@@ -34,8 +55,46 @@ char blacklist[BLACKLIST_MAX][IP_STR_LEN];
 int blacklist_count = 0;
 volatile int keep_running = 1;
 
-FILE *log_file; // Log file pointer
+FILE *log_file; // Global log file pointer
 int pipe_fd = -1; // Named pipe file descriptor
+
+// Function to write an exact number of bytes to the pipe
+ssize_t write_exact(int fd, const void *buf, size_t count) {
+    size_t total_written = 0;
+    size_t write_size = (count < 1515) ? count : 1515;  // Ensure no more than 1515 bytes are written
+
+    // Pad the data if it's smaller than 1515 bytes
+    char padded_data[1515];
+    memset(padded_data, 0, sizeof(padded_data));  // Fill with zeroes or another padding value
+    memcpy(padded_data, buf, write_size);  // Copy the packet data to padded buffer
+
+    while (total_written < write_size) {
+        ssize_t bytes_written = write(fd, padded_data + total_written, write_size - total_written);
+        if (bytes_written == -1) {
+            if (errno == EAGAIN) {
+                // Wait for the pipe to be ready for writing
+                struct timeval timeout = {0, 100000};  // 100ms timeout
+                fd_set writefds;
+                FD_ZERO(&writefds);
+                FD_SET(fd, &writefds);
+
+                int ready = select(fd + 1, NULL, &writefds, NULL, &timeout);
+                if (ready <= 0) {
+                    // Timeout or error
+                    return -1;
+                }
+                continue;  // Retry writing
+            } else {
+                // Handle other errors (such as EINTR or EIO)
+                return -1;
+            }
+        }
+        total_written += bytes_written;
+    }
+
+    return total_written;  // Return the number of bytes written (should be 1515)
+}
+
 
 // Function to calculate checksum
 unsigned short checksum(void *b, int len) {
@@ -52,12 +111,87 @@ unsigned short checksum(void *b, int len) {
     return ~sum;
 }
 
+// Send RST to terminate original connection
+void send_tcp_reset(const u_char *packet, int packet_len) {
+    struct ip *ip_hdr = (struct ip *)(packet + 14);
+    struct tcphdr *tcp_hdr = (struct tcphdr *)(packet + 14 + (ip_hdr->ip_hl * 4));
+
+    int sockfd = socket(AF_INET, SOCK_RAW, IPPROTO_RAW);
+    if (sockfd < 0) {
+        perror("Socket error");
+        return;
+    }
+
+    char buffer[4096];
+    memset(buffer, 0, sizeof(buffer));
+
+    struct ip *rst_ip_hdr = (struct ip *)buffer;
+    struct tcphdr *rst_tcp_hdr = (struct tcphdr *)(buffer + sizeof(struct ip));
+
+    // Build IP header for RST
+    rst_ip_hdr->ip_hl = 5;
+    rst_ip_hdr->ip_v = 4;
+    rst_ip_hdr->ip_tos = 0;
+    rst_ip_hdr->ip_len = htons(sizeof(struct ip) + sizeof(struct tcphdr));
+    rst_ip_hdr->ip_id = htons(54321);
+    rst_ip_hdr->ip_off = 0;
+    rst_ip_hdr->ip_ttl = 64;
+    rst_ip_hdr->ip_p = IPPROTO_TCP;
+    rst_ip_hdr->ip_src = ip_hdr->ip_dst;
+    rst_ip_hdr->ip_dst = ip_hdr->ip_src;
+
+    rst_ip_hdr->ip_sum = checksum(rst_ip_hdr, sizeof(struct ip));
+
+    // Build TCP header for RST
+    rst_tcp_hdr->source = tcp_hdr->dest;
+    rst_tcp_hdr->dest = tcp_hdr->source;
+    rst_tcp_hdr->seq = htonl(ntohl(tcp_hdr->ack_seq));
+    rst_tcp_hdr->ack_seq = 0;
+    rst_tcp_hdr->doff = 5;
+    rst_tcp_hdr->rst = 1;
+    rst_tcp_hdr->window = htons(0);
+    rst_tcp_hdr->check = 0; // Calculate checksum below
+
+    // Compute TCP checksum
+    struct {
+        struct in_addr src;
+        struct in_addr dst;
+        uint8_t zero;
+        uint8_t protocol;
+        uint16_t tcp_len;
+    } pseudo_hdr;
+
+    pseudo_hdr.src = ip_hdr->ip_dst;
+    pseudo_hdr.dst = ip_hdr->ip_src;
+    pseudo_hdr.zero = 0;
+    pseudo_hdr.protocol = IPPROTO_TCP;
+    pseudo_hdr.tcp_len = htons(sizeof(struct tcphdr));
+
+    char pseudo_packet[sizeof(pseudo_hdr) + sizeof(struct tcphdr)];
+    memcpy(pseudo_packet, &pseudo_hdr, sizeof(pseudo_hdr));
+    memcpy(pseudo_packet + sizeof(pseudo_hdr), rst_tcp_hdr, sizeof(struct tcphdr));
+
+    rst_tcp_hdr->check = checksum(pseudo_packet, sizeof(pseudo_packet));
+
+    // Destination address
+    struct sockaddr_in dest;
+    dest.sin_family = AF_INET;
+    dest.sin_addr = rst_ip_hdr->ip_dst;
+
+    // Send the packet
+    if (sendto(sockfd, buffer, sizeof(struct ip) + sizeof(struct tcphdr), 0, (struct sockaddr *)&dest, sizeof(dest)) < 0) {
+        perror("Sendto error");
+    }
+
+    close(sockfd);
+}
+
 // Signal handler for graceful termination
 void handle_signal(int signal) {
     keep_running = 0;
 }
 
-// Get file modification time
+// Function to get file modification time
 time_t get_file_modification_time(const char *filename) {
     struct stat file_stat;
     if (stat(filename, &file_stat) == 0) {
@@ -75,6 +209,7 @@ void load_blacklist(const char *filename) {
         return;
     }
 
+    // Create temporary array for new IPs
     char temp_blacklist[BLACKLIST_MAX][IP_STR_LEN];
     int temp_count = 0;
 
@@ -86,9 +221,13 @@ void load_blacklist(const char *filename) {
 
     fclose(file);
 
+    // Lock mutex before updating the blacklist
     pthread_mutex_lock(&blacklist_mutex);
+
+    // Update the blacklist
     blacklist_count = temp_count;
     memcpy(blacklist, temp_blacklist, sizeof(temp_blacklist));
+
     pthread_mutex_unlock(&blacklist_mutex);
 
     fprintf(log_file, "Reloaded blacklist with %d IPs\n", blacklist_count);
@@ -122,35 +261,39 @@ void *monitor_blacklist(void *arg) {
             last_modified_time = current_mod_time;
         }
 
-        sleep(1);
+        sleep(1); // Check every second
     }
     return NULL;
 }
 
-// Log packet details to the named pipe
-void packet_to_pipe(const u_char *packet, int packet_len) {
-    struct ip *ip_hdr = (struct ip *)(packet + 14); // Skip Ethernet header
-
-    char src_ip[IP_STR_LEN], dst_ip[IP_STR_LEN];
-    inet_ntop(AF_INET, &(ip_hdr->ip_src), src_ip, IP_STR_LEN);
-    inet_ntop(AF_INET, &(ip_hdr->ip_dst), dst_ip, IP_STR_LEN);
-
-    const char *protocol = (ip_hdr->ip_p == IPPROTO_TCP) ? "TCP" :
-                           (ip_hdr->ip_p == IPPROTO_UDP) ? "UDP" :
-                           (ip_hdr->ip_p == IPPROTO_ICMP) ? "ICMP" : "Other";
-
-    char data[256];
-    int bytes_written = snprintf(data, sizeof(data),
-                                 "Source IP: %s, Destination IP: %s, Protocol: %s, Packet Length: %d\n",
-                                 src_ip, dst_ip, protocol, packet_len);
-
-    if (pipe_fd != -1) {
-        if (write(pipe_fd, data, bytes_written) == -1) {
-            if (errno != EAGAIN) {
-                fprintf(log_file, "Error writing to pipe: %s\n", strerror(errno));
-                fflush(log_file);
-            }
-        }
+// Function to send packet details to the pipe in the required format
+void packet_to_pipe(const u_char *packet, int packet_len, int pipe_fd) {
+    struct ip *ip_hdr = (struct ip *)(packet + 14);  // Skip Ethernet header
+    
+    // Create the binary packet structure
+    binary_packet_t bin_pkt;
+    memset(&bin_pkt, 0, sizeof(binary_packet_t));  // Clear structure
+    
+    // Set timestamp (current time)
+    bin_pkt.timestamp = (uint32_t)time(NULL);
+    
+    // Convert source and destination IPs to byte arrays
+    memcpy(bin_pkt.src_ip, &ip_hdr->ip_src, 4);
+    memcpy(bin_pkt.dst_ip, &ip_hdr->ip_dst, 4);
+    
+    // Set packet size (limited to 1500 bytes)
+    bin_pkt.packet_size = (uint16_t)(packet_len > MAX_PACKET_SIZE ? MAX_PACKET_SIZE : packet_len);
+    
+    // Set protocol (TCP, UDP, ICMP, etc.)
+    bin_pkt.protocol = ip_hdr->ip_p;
+    
+    // Optional: Fill data array (you can fill with real packet data or zeroes)
+    memset(bin_pkt.data, 0, MAX_PACKET_SIZE);  // Filler data (you can adjust this part as needed)
+    
+    // Write the packet to the pipe
+    ssize_t bytes_written = write_exact(pipe_fd, &bin_pkt, sizeof(binary_packet_t));
+    if (bytes_written == -1) {
+        perror("Error writing to pipe");
     }
 }
 
@@ -162,33 +305,83 @@ void *forward_packets(void *args) {
 
     struct pcap_pkthdr header;
     const u_char *packet;
+    int pipe_fd = open(PIPE_PATH, O_WRONLY | O_NONBLOCK);
+
+    if (pipe_fd == -1) {
+        perror("Error opening pipe");
+        return NULL;
+    }
 
     while (keep_running) {
         packet = pcap_next(source_handle, &header);
         if (packet == NULL) {
-            continue;
+            continue; // Handle packet read error or timeout
         }
 
+        // Parse IP header
         struct ip *ip_hdr = (struct ip *)(packet + 14); // Skip Ethernet header
         char src_ip[IP_STR_LEN], dst_ip[IP_STR_LEN];
         inet_ntop(AF_INET, &(ip_hdr->ip_src), src_ip, IP_STR_LEN);
         inet_ntop(AF_INET, &(ip_hdr->ip_dst), dst_ip, IP_STR_LEN);
 
+        // Check blacklist
         if (is_blacklisted(src_ip) || is_blacklisted(dst_ip)) {
+            if (ip_hdr->ip_p == IPPROTO_TCP) {
+                send_tcp_reset(packet, header.len); // Terminate original connection
+            }
             fprintf(log_file, "Blocked packet: SRC=%s DST=%s\n", src_ip, dst_ip);
             fflush(log_file);
-            continue; // Skip forwarding
+            //continue; // Skip forwarding
         }
 
-        packet_to_pipe(packet, header.len);
+        // Log packet data to the ML system via stdout
+        packet_to_pipe(packet, header.len, pipe_fd);
 
+
+        // Forward the packet
         if (pcap_sendpacket(dest_handle, packet, header.len) != 0) {
             fprintf(log_file, "Error sending packet: %s\n", pcap_geterr(dest_handle));
             fflush(log_file);
         }
     }
 
+    close(pipe_fd);
     return NULL;
+}
+
+// Get the MTU of an interface
+int get_interface_mtu(const char *interface_name) {
+    struct ifreq ifr;
+    int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+    if (sockfd == -1) {
+        fprintf(log_file, "Socket error\n");
+        fflush(log_file);
+        return -1;
+    }
+
+    strncpy(ifr.ifr_name, interface_name, IFNAMSIZ - 1);
+    if (ioctl(sockfd, SIOCGIFMTU, &ifr) == -1) {
+        fprintf(log_file, "IOCTL error\n");
+        fflush(log_file);
+        close(sockfd);
+        return -1;
+    }
+
+    close(sockfd);
+    return ifr.ifr_mtu;
+}
+
+// Optimize interface settings
+void optimize_interface(const char *interface_name) {
+    fprintf(log_file, "Optimizing interface %s\n", interface_name);
+    fflush(log_file);
+    char command[256];
+    snprintf(command, sizeof(command), "sudo ethtool -K %s gro off", interface_name);
+    system(command);
+    snprintf(command, sizeof(command), "sudo ethtool -K %s lro off", interface_name);
+    system(command);
+    snprintf(command, sizeof(command), "sudo ethtool -C %s rx-usecs 0", interface_name);
+    system(command);
 }
 
 int main(int argc, char *argv[]) {
@@ -196,52 +389,97 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "Usage: %s <interface1> <interface2> <blacklist_file>\n", argv[0]);
         exit(EXIT_FAILURE);
     }
-
+    printf("Test");
+    fprintf(stderr, "hej");
     char *interface1 = argv[1];
     char *interface2 = argv[2];
     char *blacklist_file = argv[3];
     char errbuf[ERRBUF_SIZE];
 
     blacklist_file_path = argv[3];
+
+    // Open log file
     log_file = fopen("forwarder.log", "a");
     if (!log_file) {
         perror("Error opening log file");
         exit(EXIT_FAILURE);
     }
 
-    // Create named pipe
+      // Create the named pipe
     if (mkfifo(PIPE_PATH, 0666) == -1 && errno != EEXIST) {
         perror("Error creating pipe");
-        exit(EXIT_FAILURE);
+        return 1;
     }
 
-    // Open pipe for writing
+    FILE *pipe_file = fopen(PIPE_PATH, "w");
+    if (pipe_file == NULL) {
+        perror("Error opening pipe");
+        return 1;
+    }
+
+    // Open the pipe for writing
     pipe_fd = open(PIPE_PATH, O_WRONLY | O_NONBLOCK);
     if (pipe_fd == -1) {
         fprintf(stderr, "Error opening pipe: %s\n", strerror(errno));
         exit(EXIT_FAILURE);
     }
 
+    
+ // Simulating packet data to send to the pipe
+    const char *packet_data = "Example packet data to write to the pipe.\n";
+    size_t data_len = strlen(packet_data) + 1; // Including the null-terminator
+
+    // Write packet data to the pipe
+    if (write_exact(pipe_fd, packet_data, data_len) == -1) {
+        fprintf(stderr, "Error writing to pipe: %s\n", strerror(errno));
+        fprintf(stderr, packet_data, data_len)
+        close(pipe_fd);
+        exit(EXIT_FAILURE);
+    }
+
+    printf("Data written to the pipe successfully.\n");
+
+
+
+    // Get initial modification time
     last_modified_time = get_file_modification_time(blacklist_file_path);
+
+    // Load the blacklist
     load_blacklist(blacklist_file_path);
 
+    // Set up signal handling
     signal(SIGINT, handle_signal);
     signal(SIGTERM, handle_signal);
 
+    // Optimize interfaces
+    optimize_interface(interface1);
+    optimize_interface(interface2);
+
+    nice(-20); // Set process to high priority
+
+    int mtu1 = get_interface_mtu(interface1);
+    int mtu2 = get_interface_mtu(interface2);
+
+    if (mtu1 == -1 || mtu2 == -1) {
+        fprintf(stderr, "Error getting MTU for interfaces\n");
+        exit(EXIT_FAILURE);
+    }
+
+    // Create pcap handles for both interfaces
     pcap_t *handle1 = pcap_create(interface1, errbuf);
     pcap_t *handle2 = pcap_create(interface2, errbuf);
-
     if (!handle1 || !handle2) {
         fprintf(stderr, "Error creating capture handles: %s\n", errbuf);
         exit(EXIT_FAILURE);
     }
 
+    // Configure capture settings for high performance
     pcap_t *handles[] = {handle1, handle2};
     for (size_t i = 0; i < 2; i++) {
         pcap_set_snaplen(handles[i], SNAP_LEN);
         pcap_set_promisc(handles[i], 1);
-        pcap_set_timeout(handles[i], 10);
-        pcap_set_buffer_size(handles[i], 1024 * 1024 * 64);
+        pcap_set_timeout(handles[i], 10); // Increase timeout to 10ms
+        pcap_set_buffer_size(handles[i], 1024 * 1024 * 64); // 64MB buffer
         pcap_set_immediate_mode(handles[i], 1);
 
         if (pcap_activate(handles[i]) != 0) {
@@ -250,23 +488,52 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    pthread_t thread1, thread2, monitor_thread;
-    forwarder_args_t args1 = {handle1, handle2, 1500};
-    forwarder_args_t args2 = {handle2, handle1, 1500};
+    fprintf(log_file, "Forwarding packets between %s and %s...\n", interface1, interface2);
+    fflush(log_file);
 
-    pthread_create(&thread1, NULL, forward_packets, &args1);
-    pthread_create(&thread2, NULL, forward_packets, &args2);
-    pthread_create(&monitor_thread, NULL, monitor_blacklist, NULL);
+    pthread_t thread1, thread2;
+    forwarder_args_t forward1 = {handle1, handle2, mtu2};
+    forwarder_args_t forward2 = {handle2, handle1, mtu1};
+
+    // Create monitoring thread
+    pthread_t monitor_thread;
+    if (pthread_create(&monitor_thread, NULL, monitor_blacklist, NULL) != 0) {
+        fprintf(stderr, "Error creating monitoring thread\n");
+        exit(EXIT_FAILURE);
+    }
+
+    // Set high priority for threads
+    pthread_attr_t attr;
+    struct sched_param param;
+    pthread_attr_init(&attr);
+    pthread_attr_setschedpolicy(&attr, SCHED_FIFO);
+    param.sched_priority = 50;
+    pthread_attr_setschedparam(&attr, &param);
+
+    if (pthread_create(&thread1, &attr, forward_packets, &forward1) != 0) {
+        fprintf(stderr, "Error creating thread for %s -> %s\n", interface1, interface2);
+        exit(EXIT_FAILURE);
+    }
+
+    if (pthread_create(&thread2, &attr, forward_packets, &forward2) != 0) {
+        fprintf(stderr, "Error creating thread for %s -> %s\n", interface2, interface1);
+        exit(EXIT_FAILURE);
+    }
 
     pthread_join(thread1, NULL);
     pthread_join(thread2, NULL);
     pthread_join(monitor_thread, NULL);
+    pthread_mutex_destroy(&blacklist_mutex);
 
     pcap_close(handle1);
     pcap_close(handle2);
-    fclose(log_file);
+
+    // Close the pipe before exiting
     close(pipe_fd);
     unlink(PIPE_PATH);
+
+    // Close the log file
+    fclose(log_file);
 
     return 0;
 }
