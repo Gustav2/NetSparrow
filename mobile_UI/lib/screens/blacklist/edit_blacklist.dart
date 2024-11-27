@@ -18,6 +18,7 @@ class _HomeState extends State<EditBlacklist> {
   String ifblocked = 'none';
   bool loading = false;
   String filter = '';
+  int maxEntries = 10;
 
   @override
   void initState() {
@@ -56,7 +57,8 @@ class _HomeState extends State<EditBlacklist> {
                       valueColor: AlwaysStoppedAnimation<Color>(Colors.black),
                     ))),
           ),
-          duration: Duration(days: 1),
+          duration: const Duration(seconds: 30),
+          dismissDirection: DismissDirection.none,
         ),
       );
     } else {
@@ -121,7 +123,6 @@ class _HomeState extends State<EditBlacklist> {
   }
 
   Future<void> fetchFirewallData() async {
-    
     try {
       final blacklistData = await apiService.getBlacklist();
       final myBlacklistData = await apiService.getMyBlacklist();
@@ -130,7 +131,6 @@ class _HomeState extends State<EditBlacklist> {
         blacklist = blacklistData;
         myBlacklist = myBlacklistData;
       });
-
     } catch (e) {
       setState(() {
         print("Error: ${e.toString()}");
@@ -147,13 +147,17 @@ class _HomeState extends State<EditBlacklist> {
 
     return blacklist
         .where((entry) {
-          final ip = (entry['capturedpacket_entry__ip'] ?? 'Unknown IP').toLowerCase();
-          final url = (entry['capturedpacket_entry__url'] ?? 'No URL').toLowerCase();
+          final ip =
+              (entry['capturedpacket_entry__ip'] ?? 'Unknown IP').toLowerCase();
+          final url =
+              (entry['capturedpacket_entry__url'] ?? 'No URL').toLowerCase();
           return filter.isEmpty || ip.contains(filter) || url.contains(filter);
         })
+        .take(maxEntries)
         .map((entry) {
-          final isChecked = blockedIPs.contains(entry['capturedpacket_entry__ip']);
-          
+          final isChecked =
+              blockedIPs.contains(entry['capturedpacket_entry__ip']);
+
           return BlacklistCard(
             entry['capturedpacket_entry__ip'] ?? 'Unknown IP',
             entry['capturedpacket_entry__url'] ?? 'No URL',
@@ -205,6 +209,25 @@ class _HomeState extends State<EditBlacklist> {
                     Row(children: [Container()]),
                     _buildSearchBar(),
                     ...displayCards(filter),
+                    if (maxEntries < blacklist.length)
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                        TextButton(
+                            style: TextButton.styleFrom(
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              backgroundColor: Colors.white,
+                            ),
+                            onPressed: () {
+                              setState(() {
+                                maxEntries += 10;
+                              });
+                            },
+                            child: const Center(child: Text('Show more')))
+                      ]),
+                    const SizedBox(height: 16),
                   ],
                 ),
               ),
@@ -237,6 +260,7 @@ class _HomeState extends State<EditBlacklist> {
         onChanged: (value) {
           setState(() {
             filter = value.toLowerCase();
+            maxEntries = 10;
           });
         },
       ),
