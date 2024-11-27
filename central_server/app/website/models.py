@@ -53,7 +53,7 @@ class CapturedPacket(models.Model):
 def check_capture_count(sender, instance, **kwargs):
     capture_count = CapturedPacket.objects.filter(ip=instance.ip, url=instance.url).values('user').distinct().count()
     
-    if capture_count >= 20:
+    if capture_count >= 1:
         if not Blacklist.objects.filter(capturedpacket_entry__ip=instance.ip, capturedpacket_entry__url=instance.url).exists():
             captured_packet_entry = CapturedPacket.objects.filter(ip=instance.ip, url=instance.url).first()
             Blacklist.objects.create(capturedpacket_entry=captured_packet_entry)
