@@ -32,18 +32,19 @@
 
 #pragma pack(1) // Disable padding
 
-typedef struct {
-    uint32_t timestamp;              // 4 bytes
-    uint8_t src_ip[4];               // 4 bytes
-    uint8_t dst_ip[4];               // 4 bytes
-    uint16_t packet_size;            // 2 bytes
-    uint8_t protocol;                // 1 byte
-    uint8_t data[PACKET_DATA_SIZE];  // 1500 bytes
+
+#pragma pack(push, 1) // Ensure no padding
+typedef struct binary_packet_t {
+    uint32_t timestamp;     // 4 bytes
+    uint8_t src_ip[4];      // 4 bytes
+    uint8_t dst_ip[4];      // 4 bytes
+    uint16_t packet_size;   // 2 bytes
+    uint8_t protocol;       // 1 byte
+    uint8_t data[1500];     // 1500 bytes
 } binary_packet_t;
+#pragma pack(pop)
 
-#pragma pack() // Restore default alignment
-
-
+ 
 typedef struct {
     pcap_t *source_handle;
     pcap_t *dest_handle;
@@ -375,7 +376,6 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "Error opening pipe: %s\n", strerror(errno));
         exit(EXIT_FAILURE);
     }
-    printf("Size of binary_packet_t: %zu\n", sizeof(binary_packet_t));
 
     // Get initial modification time
     last_modified_time = get_file_modification_time(blacklist_file_path);
