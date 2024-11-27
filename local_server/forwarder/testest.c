@@ -432,7 +432,7 @@ int main(int argc, char *argv[]) {
     // Write packet data to the pipe
     if (write_exact(pipe_fd, packet_data, data_len) == -1) {
         fprintf(stderr, "Error writing to pipe: %s\n", strerror(errno));
-        fprintf(stderr, packet_data, data_len)
+        fprintf(stderr, "Data: %s\n", packet_data);
         close(pipe_fd);
         exit(EXIT_FAILURE);
     }
