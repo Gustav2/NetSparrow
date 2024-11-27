@@ -30,6 +30,7 @@
 #define BUFFER_SIZE 256
 #define PACKET_DATA_SIZE 1500
 #define MAX_PACKET_SIZE 1500
+
 // Structure to represent the binary packet
 typedef struct {
     uint32_t timestamp;
@@ -60,14 +61,38 @@ int pipe_fd = -1; // Named pipe file descriptor
 // Function to write an exact number of bytes to the pipe
 ssize_t write_exact(int fd, const void *buf, size_t count) {
     size_t total_written = 0;
-    while (total_written < count) {
-        ssize_t bytes_written = write(fd, buf + total_written, count - total_written);
-        if (bytes_written <= 0) {
-            return -1;  // Error or EOF
+    size_t write_size = (count < 1515) ? count : 1515;  // Ensure no more than 1515 bytes are written
+
+    // Pad the data if it's smaller than 1515 bytes
+    char padded_data[1515];
+    memset(padded_data, 0, sizeof(padded_data));  // Fill with zeroes or another padding value
+    memcpy(padded_data, buf, write_size);  // Copy the packet data to padded buffer
+
+    while (total_written < write_size) {
+        ssize_t bytes_written = write(fd, padded_data + total_written, write_size - total_written);
+        if (bytes_written == -1) {
+            if (errno == EAGAIN) {
+                // Wait for the pipe to be ready for writing
+                struct timeval timeout = {0, 100000};  // 100ms timeout
+                fd_set writefds;
+                FD_ZERO(&writefds);
+                FD_SET(fd, &writefds);
+
+                int ready = select(fd + 1, NULL, &writefds, NULL, &timeout);
+                if (ready <= 0) {
+                    // Timeout or error
+                    return -1;
+                }
+                continue;  // Retry writing
+            } else {
+                // Handle other errors (such as EINTR or EIO)
+                return -1;
+            }
         }
         total_written += bytes_written;
     }
-    return total_written;
+
+    return total_written;  // Return the number of bytes written (should be 1515)
 }
 
 
