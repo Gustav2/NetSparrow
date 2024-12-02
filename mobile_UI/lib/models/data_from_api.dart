@@ -4,6 +4,9 @@ import 'package:my_app/models/keys.dart';
 
 // The Api Service class is responsible for fetching data from the API.
 class ApiService {
+  final http.Client client;
+
+  ApiService({http.Client? client}) : client = client ?? http.Client();
   final String blacklistUrl = blacklisturl; // url to the blacklist API
   final String token = blacklistToken; // token for the blacklist API
   final String baseUrl = piurl; // url to the pi API
@@ -11,7 +14,7 @@ class ApiService {
 
   // Fetches the firewall status from the API. reuturns true if the system i running as expected.
   Future<bool> getStatus() async {
-    final response = await http.get(
+    final response = await client.get(
       Uri.parse("$blacklistUrl/settings/centralblacklist/"), // sends a get request to the centralblacklist API
       headers: {
         'Authorization': token, // includes the token in the header
@@ -22,7 +25,7 @@ class ApiService {
     if (response.statusCode == 200) {
       return true; // if the response is successful, return true
     } else {
-      throw Exception("Failed to load firewall status"); // if the response is not successful, throw an exception
+      return false; // if the response is not successful, return false
     }
   }
 
