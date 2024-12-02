@@ -326,7 +326,7 @@ def settings_update(request):
             settings.notify_blacklist_updates = data.get('notify_blacklist_updates', settings.notify_blacklist_updates)
             settings.notify_suspicious_activity = data.get('notify_suspicious_activity', settings.notify_suspicious_activity)
             settings.ml_caution = data.get('mlCaution', settings.ml_caution)
-            settings.ml_percentage = data.get('mlPercentage', settings.ml_percentag)
+            settings.ml_percentage = data.get('mlPercentage', settings.ml_percentage)
 
             settings.save()
 
