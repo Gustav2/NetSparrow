@@ -26,7 +26,7 @@
 #define BLACKLIST_MAX 2048
 #define IP_STR_LEN 16
 #define BATCH_SIZE 32
-#define PIPE_PATH "/tmp/packet_log_pipe" // Define the pipe path
+#define PIPE_PATH "/shared/packet_log_pipe" // Define the pipe path
 #define BUFFER_SIZE 256
 
 typedef struct __attribute__((packed)) {
@@ -57,7 +57,6 @@ volatile int keep_running = 1;
 
 FILE *log_file; // Global log file pointer
 int pipe_fd = -1; // Named pipe file descriptor
-
 
 // Function to calculate checksum
 unsigned short checksum(void *b, int len) {
@@ -294,8 +293,6 @@ void packet_to_pipe(const u_char *packet, int packet_len) {
     }
 }
 
-
-
 // Forward packets between interfaces with blacklist filtering
 void *forward_packets(void *args) {
     forwarder_args_t *forward_args = (forwarder_args_t *)args;
@@ -376,7 +373,7 @@ void optimize_interface(const char *interface_name) {
 }
 
 int main(int argc, char *argv[]) {
-    if (argc != 4) {
+    if (argc != 5) {
         fprintf(stderr, "Usage: %s <interface1> <interface2> <blacklist_file>\n", argv[0]);
         exit(EXIT_FAILURE);
     }
@@ -384,10 +381,9 @@ int main(int argc, char *argv[]) {
     fprintf(stderr, "hej");
     char *interface1 = argv[1];
     char *interface2 = argv[2];
-    char *blacklist_file = argv[3];
+    char *blacklist_file_path = argv[3];
+    char *settings_file_path = argv[4];
     char errbuf[ERRBUF_SIZE];
-
-    blacklist_file_path = argv[3];
 
     // Open log file
     log_file = fopen("forwarder.log", "a");
@@ -419,7 +415,6 @@ int main(int argc, char *argv[]) {
         fclose(log_file);  // Clean up
         exit(EXIT_FAILURE);
     }
-
 
     // Get initial modification time
     last_blacklist_modified_time = get_file_modification_time(blacklist_file_path);
