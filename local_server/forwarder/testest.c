@@ -286,8 +286,15 @@ void packet_to_pipe(const u_char *packet, int packet_len) {
     if (pipe_fd != -1) {
         ssize_t written = write(pipe_fd, &binary_packet, sizeof(binary_packet_t));
         if (written != sizeof(binary_packet_t)) {
-            fprintf(log_file, "Pipe write error: expected %zu bytes, wrote %zd bytes\n",
-                    sizeof(binary_packet_t), written);
+            char timestamp[64];
+            time_t now = time(NULL);
+            struct tm *tm_info = localtime(&now);
+
+            // Format the timestamp as YYYY-MM-DD HH:MM:SS
+            strftime(timestamp, sizeof(timestamp), "%Y-%m-%d %H:%M:%S", tm_info);
+
+            // Log the error with the timestamp
+            fprintf(log_file, "[%s] Pipe write error: %s\n", timestamp, strerror(errno));
             fflush(log_file);
         }
     }
@@ -325,7 +332,11 @@ void *forward_packets(void *args) {
         }
 
         // Log packet data to the ML system via stdout
-        packet_to_pipe(packet, header.len);
+        if (rand() % 100 < MLPercentage) {
+            packet_to_pipe(packet, header.len);
+            fprintf(log_file, "Package sent to ML system at a percentage of: %i\n", MLPercentage);
+            fflush(log_file);
+        }
 
         // Forward the packet
         if (pcap_sendpacket(dest_handle, packet, header.len) != 0) {
@@ -374,7 +385,7 @@ void optimize_interface(const char *interface_name) {
 
 int main(int argc, char *argv[]) {
     if (argc != 5) {
-        fprintf(stderr, "Usage: %s <interface1> <interface2> <blacklist_file>\n", argv[0]);
+        fprintf(stderr, "Usage: %s <interface1> <interface2> <blacklist_file> <settings_file>\n", argv[0]);
         exit(EXIT_FAILURE);
     }
     printf("Test");
