@@ -13,7 +13,7 @@ class Blacklist(models.Model):
         if self.capturedpacket_entry:
             return f"{self.capturedpacket_entry.ip or None} - {self.capturedpacket_entry.url or None}"
         return "Orphaned Blacklist Entry"
-    
+
     def save(self, *args, **kwargs):
         is_new = self.pk is None
         super().save(*args, **kwargs)
@@ -37,7 +37,7 @@ class MyBlacklist(models.Model):
     def __str__(self):
         return f"{self.user.username if self.user else 'No User'}'s entry: {self.blacklist_entry}"
 
-    
+
 class CapturedPacket(models.Model):
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
     captured_at = models.DateTimeField(auto_now_add=True)
@@ -63,7 +63,7 @@ class CapturedPacket(models.Model):
 @receiver(post_save, sender=CapturedPacket)
 def check_capture_count(sender, instance, **kwargs):
     capture_count = CapturedPacket.objects.filter(ip=instance.ip, url=instance.url).values('user').distinct().count()
-    
+
     if capture_count >= 1:
         if not Blacklist.objects.filter(capturedpacket_entry__ip=instance.ip, capturedpacket_entry__url=instance.url).exists():
             captured_packet_entry = CapturedPacket.objects.filter(ip=instance.ip, url=instance.url).first()
@@ -77,6 +77,8 @@ class MySettings(models.Model):
     dark_mode = models.BooleanField(default=False)
     notify_blacklist_updates = models.BooleanField(default=False)
     notify_suspicious_activity = models.BooleanField(default=False)
+    ml_caution = models.float(default=0.9)
+    ml_percentage = models.int(default=100)
 
     def __str__(self):
         return f"Settings for {self.user.username}"
