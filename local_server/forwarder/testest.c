@@ -214,8 +214,13 @@ void load_settings(const char *filename) {
             key[strcspn(key, " \t\n")] = 0;
 
             if (strcmp(key, "MLPercentage") == 0) {
-                MLPercentage = value;
-                fprintf(log_file, "MLPercentage updated to: %d\n", value);
+                if (value >= 0 && value <= 100) {
+                    MLPercentage = value;
+                    fprintf(log_file, "Settings: MLPercentage updated to: %d\n", value);
+                }
+                else {
+                    fprintf(log_file, "Settings: Invalid MLPercentage %d\n", value);
+                }
             }
             // more settings can be added here following the above example
         }
@@ -394,7 +399,7 @@ int main(int argc, char *argv[]) {
     char *interface1 = argv[1];
     char *interface2 = argv[2];
     char *blacklist_file_path = argv[3];
-    char *settings_file_path = argv[4];
+    settings_file_path = argv[4];
     char errbuf[ERRBUF_SIZE];
 
     // Open log file
@@ -430,6 +435,7 @@ int main(int argc, char *argv[]) {
 
     // Get initial modification time
     last_blacklist_modified_time = get_file_modification_time(blacklist_file_path);
+    last_settings_modified_time = get_file_modification_time(settings_file_path);
 
     // Load the blacklist
     load_blacklist(blacklist_file_path);
