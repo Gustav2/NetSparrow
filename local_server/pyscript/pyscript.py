@@ -13,6 +13,7 @@ myIP = "172.26.120.53"
 PIPE_NAME = "/shared/analysis_pipe"
 FORMAT = "=4s4sf"
 blacklist_path = Path('/shared/blacklist.txt')
+settings_path = Path('/shared/settings.txt')
 
 logging.basicConfig(
     filename = "/shared/pyscript.log",
