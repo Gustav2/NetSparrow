@@ -21,4 +21,4 @@ COPY . /app
 RUN gcc -o packet_forwarder testest.c -lpcap -pthread
 
 # Entry point
-CMD ["./packet_forwarder", "eth1", "eth2", "/shared/blacklist.txt"]
+CMD ["./packet_forwarder", "eth1", "eth2", "/shared/blacklist.txt", "/shared/settings.txt"]
