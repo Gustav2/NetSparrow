@@ -45,8 +45,11 @@ typedef struct {
 } forwarder_args_t;
 
 char *blacklist_file_path;
+char *settings_file_path;
 pthread_mutex_t blacklist_mutex = PTHREAD_MUTEX_INITIALIZER;
-time_t last_modified_time = 0;
+time_t last_blacklist_modified_time = 0;
+time_t last_settings_modified_time = 0;
+int MLPercentage = 100;
 
 char blacklist[BLACKLIST_MAX][IP_STR_LEN];
 int blacklist_count = 0;
@@ -194,6 +197,34 @@ void load_blacklist(const char *filename) {
     fflush(log_file);
 }
 
+// for loading settings
+void load_settings(const char *filename) {
+    FILE *file = fopen(filename, "r");
+    if (!file) {
+        fprintf(log_file, "Error opening settings file: %s\n", filename);
+        fflush(log_file);
+        return;
+    }
+
+    char line[256];
+    char key[256];
+    int value;
+
+    while (fgets(line, sizeof(line), file)) {
+        if (sscanf(line, "%[^=]=%d", key, &value) == 2) {
+            key[strcspn(key, " \t\n")] = 0;
+
+            if (strcmp(key, "MLPercentage") == 0) {
+                MLPercentage = value;
+                fprintf(log_file, "MLPercentage updated to: %d\n", value);
+            }
+            // more settings can be added here following the above example
+        }
+    }
+    fclose(file);
+    fflush(log_file);
+}
+
 // Check if an IP is blacklisted
 int is_blacklisted(const char *ip) {
     int result = 0;
@@ -213,14 +244,20 @@ int is_blacklisted(const char *ip) {
 void *monitor_blacklist(void *arg) {
     while (keep_running) {
         time_t current_mod_time = get_file_modification_time(blacklist_file_path);
-
-        if (current_mod_time > last_modified_time) {
+        if (current_mod_time > last_blacklist_modified_time) {
             fprintf(log_file, "Blacklist file changed, reloading...\n");
             fflush(log_file);
             load_blacklist(blacklist_file_path);
-            last_modified_time = current_mod_time;
+            last_blacklist_modified_time = current_mod_time;
         }
 
+        time_t current_settings_time = get_file_modification_time(settings_file_path);
+        if (current_settings_time > last_settings_modified_time) {
+            fprintf(log_file, "Settings file changed, reloading...\n");
+            fflush(log_file);
+            load_settings(settings_file_path);
+            last_settings_modified_time = current_settings_time;
+        }
         sleep(1); // Check every second
     }
     return NULL;
@@ -230,19 +267,19 @@ void *monitor_blacklist(void *arg) {
 void packet_to_pipe(const u_char *packet, int packet_len) {
     struct ip *ip_hdr = (struct ip *)(packet + 14); // Skip Ethernet header
     binary_packet_t binary_packet;
-    
+
     // Zero out the structure
     memset(&binary_packet, 0, sizeof(binary_packet_t));
-    
+
     // Fill structure with network byte order
     binary_packet.timestamp = htonl((uint32_t)time(NULL));
     memcpy(binary_packet.src_ip, &(ip_hdr->ip_src), 4);
     memcpy(binary_packet.dst_ip, &(ip_hdr->ip_dst), 4);
     binary_packet.packet_size = htons((uint16_t)packet_len);
     binary_packet.protocol = ip_hdr->ip_p;
-    
+
     // Copy packet data (limited to 1500 bytes)
-    size_t data_len = packet_len > sizeof(binary_packet.data) ? 
+    size_t data_len = packet_len > sizeof(binary_packet.data) ?
                       sizeof(binary_packet.data) : packet_len;
     memcpy(binary_packet.data, packet, data_len);
 
@@ -360,15 +397,15 @@ int main(int argc, char *argv[]) {
     }
 
      // Create the named pipe and handle potential errors
-if (mkfifo(PIPE_PATH, 0666) == -1) {
-    if (errno != EEXIST) {
-        fprintf(stderr, "Error creating named pipe '%s': %s\n", PIPE_PATH, strerror(errno));
-        exit(EXIT_FAILURE);
-    } else {
-        fprintf(log_file, "Named pipe '%s' already exists, proceeding...\n", PIPE_PATH);
-        fflush(log_file);
+    if (mkfifo(PIPE_PATH, 0666) == -1) {
+        if (errno != EEXIST) {
+            fprintf(stderr, "Error creating named pipe '%s': %s\n", PIPE_PATH, strerror(errno));
+            exit(EXIT_FAILURE);
+        } else {
+            fprintf(log_file, "Named pipe '%s' already exists, proceeding...\n", PIPE_PATH);
+            fflush(log_file);
+        }
     }
-}
     FILE *pipe_file = fopen(PIPE_PATH, "w");
     if (pipe_file == NULL) {
         perror("Error opening pipe");
@@ -381,11 +418,11 @@ if (mkfifo(PIPE_PATH, 0666) == -1) {
         fprintf(stderr, "Error opening named pipe '%s': %s\n", PIPE_PATH, strerror(errno));
         fclose(log_file);  // Clean up
         exit(EXIT_FAILURE);
-}
+    }
 
 
     // Get initial modification time
-    last_modified_time = get_file_modification_time(blacklist_file_path);
+    last_blacklist_modified_time = get_file_modification_time(blacklist_file_path);
 
     // Load the blacklist
     load_blacklist(blacklist_file_path);
