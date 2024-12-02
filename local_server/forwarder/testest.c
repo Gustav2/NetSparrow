@@ -332,7 +332,8 @@ void *forward_packets(void *args) {
         }
 
         // Log packet data to the ML system via stdout
-        if (rand() % 100 < MLPercentage) {
+        double random_value = (double)rand() / RAND_MAX * 100;
+        if (random_value < MLPercentage) {
             packet_to_pipe(packet, header.len);
             fprintf(log_file, "Package sent to ML system at a percentage of: %i\n", MLPercentage);
             fflush(log_file);
