@@ -77,8 +77,8 @@ class MySettings(models.Model):
     dark_mode = models.BooleanField(default=False)
     notify_blacklist_updates = models.BooleanField(default=False)
     notify_suspicious_activity = models.BooleanField(default=False)
-    ml_caution = models.float(default=0.9)
-    ml_percentage = models.int(default=100)
+    ml_caution = models.DecimalField(default=0.9)
+    ml_percentage = models.IntegerField(default=100)
 
     def __str__(self):
         return f"Settings for {self.user.username}"
