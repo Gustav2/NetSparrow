@@ -19,6 +19,7 @@ settings_path = Path('/shared/settings.txt')
 
 mlConfidence = 0.9
 
+@dataclass
 class Settings:
     ml_confidence: float = 0.9
     updated: Event = Event()
@@ -70,8 +71,10 @@ def pullSettings(centralToken):
 
         if "mlConfidence" in settings_data:
             new_confidence = float(settings_data["mlConfidence"])
+            logging.info(f"Updating ML Confidence from {settings.ml_confidence} to {new_confidence}")
             settings.ml_confidence = new_confidence
-            settings.updated.set()
+            settings.updated.set()  # Signal that settings have been updated
+            logging.info(f"New ML Confidence set: {settings.ml_confidence}")
 
         with open(settings_path, 'w', newline='') as file:
             for key, value in settings_data.items():
@@ -121,10 +124,11 @@ def read_from_pipe():
                 source_ip_str = ip_bytes_to_string(source_ip)
                 dest_ip_str = ip_bytes_to_string(dest_ip)
 
-                logging.info(f"Packet read from pipe: {source_ip_str} -> {dest_ip_str} with confidence {confidence}")
-
                 current_confidence = float(confidence)
                 current_threshold = settings.ml_confidence
+
+                logging.info(f"Packet read from pipe: {source_ip_str} -> {dest_ip_str}")
+                logging.info(f"Comparing confidence {current_confidence} against threshold {current_threshold}")
 
                 if current_confidence >= current_threshold:
                     logging.info("Confidence passed, pushing to blacklist...")
