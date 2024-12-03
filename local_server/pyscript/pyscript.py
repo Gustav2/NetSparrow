@@ -112,6 +112,8 @@ def read_from_pipe():
                 source_ip_str = ip_bytes_to_string(source_ip)
                 dest_ip_str = ip_bytes_to_string(dest_ip)
 
+                logging.info(f"Packet read from pipe: {source_ip_str} -> {dest_ip_str} with confidence {confidence}")
+
                 if confidence >= mlConfidence:
                     if source_ip_str == myIP:
                         data = {
