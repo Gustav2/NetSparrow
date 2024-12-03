@@ -5,6 +5,8 @@ import threading
 import time
 import ipaddress
 import logging
+from dataclasses import dataclass
+from threading import Event
 from pathlib import Path
 
 centralToken = "Token f990deebf6b6f888560a4b2bc131989496a55030"
@@ -16,7 +18,12 @@ blacklist_path = Path('/shared/blacklist.txt')
 settings_path = Path('/shared/settings.txt')
 
 mlConfidence = 0.9
-ml_confidence_lock = threading.Lock()
+
+class Settings:
+    ml_confidence: float = 0.9
+    updated: Event = Event()
+
+settings = Settings()
 
 logging.basicConfig(
     filename = "/shared/ns_service_manager.log",
@@ -62,9 +69,9 @@ def pullSettings(centralToken):
         settings_data = response.json()
 
         if "mlConfidence" in settings_data:
-            with ml_confidence_lock:
-                mlConfidence = float(settings_data["mlConfidence"])
-            logging.info(f"New ML Confidence: {mlConfidence}")
+            new_confidence = float(settings_data["mlConfidence"])
+            settings.ml_confidence = new_confidence
+            settings.updated.set()
 
         with open(settings_path, 'w', newline='') as file:
             for key, value in settings_data.items():
@@ -116,15 +123,10 @@ def read_from_pipe():
 
                 logging.info(f"Packet read from pipe: {source_ip_str} -> {dest_ip_str} with confidence {confidence}")
 
+                current_confidence = float(confidence)
+                current_threshold = settings.ml_confidence
 
-                with ml_confidence_lock:
-                    current_mlConfidence = float(mlConfidence)
-
-
-                logging.info(f"confidence: {confidence}, type: {type(confidence)}")
-                logging.info(f"mlConfidence: {current_mlConfidence}, type: {type(current_mlConfidence)}")
-
-                if float(confidence) >= current_mlConfidence:
+                if current_confidence >= current_threshold:
                     logging.info("Confidence passed, pushing to blacklist...")
                     if source_ip_str == myIP:
                         data = {
