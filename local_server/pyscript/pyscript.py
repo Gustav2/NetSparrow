@@ -15,43 +15,70 @@ FORMAT = "=4s4sf"
 blacklist_path = Path('/shared/blacklist.txt')
 settings_path = Path('/shared/settings.txt')
 
+mlConfidence = 0.9
+
 logging.basicConfig(
-    filename = "/shared/pyscript.log",
+    filename = "/shared/ns_service_manager.log",
     level = logging.INFO,
     format = "%(asctime)s - %(levelname)s - %(message)s",
     filemode = "a"
 )
 
-tempSettings = {
-    "mlPercentage": 100,
-    "caution": 5
-}
-
 def pullBlacklist(centralToken):
+    try:
+        url = "https://netsparrow.viktorkirk.com/settings/myblacklist/"
+        headers = {
+            "Authorization": str(centralToken),
+            "Content-Type": "application/json"
+        }
+        logging.info("Blacklist URL set...")
+
+        response = requests.get(url, headers=headers)
+        logging.info(response.json())
+        blacklist_data = response.json()["myblacklists"]
+
+        with open(blacklist_path, 'w', newline='') as file:
+            for key in blacklist_data:
+                ip = str(key["blacklist_entry__capturedpacket_entry__ip"])
+                file.write(ip + "\n")
+                #url = str(i["blacklist_entry__capturedpacket_entry__url"])
+        logging.info("Finished writing new blacklist")
+
+    except Exception:
+        logging.info("Failed to pull blacklist, passing...")
+
+def pullSettings(centralToken):
+    global mlConfidence
+    try:
+        url = "https://netsparrow.viktorkirk.com/api/settings/get/pi/"
+        headers = {
+            "Authorization": str(centralToken),
+        }
+        logging.info("Settings URL set...")
+
+        response = requests.get(url, headers=headers)
+        logging.info(response.json())
+        settings_data = response.json()
+
+        if "mlConfidence" in settings_data:
+            mlConfidence = float(settings_data["mlConfidence"])
+            logging.info(f"New ML Confidence: {mlConfidence}")
+
+        with open(settings_path, 'w', newline='') as file:
+            for key, value in settings_data.items():
+                file.write(f"{key}={value}\n")
+
+        logging.info("Finished writing settings")
+
+    except Exception as e:
+        logging.info(f"Failed to pull settings with error: {str(e)}, passing...")
+
+def pullBoth(centralToken):
     while True:
-        try:
-            url = "https://netsparrow.viktorkirk.com/settings/myblacklist/"
-            headers = {
-                "Authorization": str(centralToken),
-                "Content-Type": "application/json"
-            }
-            logging.info("URL Set...")
-
-            response = requests.get(url, headers=headers)
-            logging.info(response.json())
-            blacklist_data = response.json()["myblacklists"]
-
-            with open(blacklist_path, 'w', newline='') as file:
-                for i in blacklist_data:
-                    ip = str(i["blacklist_entry__capturedpacket_entry__ip"])
-                    file.write(ip + "\n")
-                    #url = str(i["blacklist_entry__capturedpacket_entry__url"])
-            logging.info("Finished writing new blacklist")
-
-        except Exception:
-            logging.info("Failed to pull blacklist, retrying...")
-
-        time.sleep(5)
+        pullBlacklist(centralToken)
+        time.sleep(1)
+        pullSettings(centralToken)
+        time.sleep(4)
 
 def ip_bytes_to_string(ip_bytes):
     return '.'.join(str(b) for b in ip_bytes)
@@ -84,7 +111,7 @@ def read_from_pipe():
                 source_ip_str = ip_bytes_to_string(source_ip)
                 dest_ip_str = ip_bytes_to_string(dest_ip)
 
-                if confidence >= 0.9:
+                if confidence >= mlConfidence:
                     if source_ip_str == myIP:
                         data = {
                             "ip": dest_ip_str
@@ -121,7 +148,7 @@ def read_from_pipe():
 
 if __name__ == "__main__":
     pipe_thread = threading.Thread(target=read_from_pipe, daemon=True)
-    communication_thread = threading.Thread(target=pullBlacklist, args=(centralToken,), daemon=True)
+    communication_thread = threading.Thread(target=pullBoth, args=(centralToken,), daemon=True)
 
     pipe_thread.start()
     communication_thread.start()
