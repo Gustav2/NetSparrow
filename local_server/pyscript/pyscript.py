@@ -122,7 +122,7 @@ def read_from_pipe():
 
 
                 logging.info(f"confidence: {confidence}, type: {type(confidence)}")
-                logging.info(f"mlConfidence: {mlConfidence}, type: {type(mlConfidence)}")
+                logging.info(f"mlConfidence: {current_mlConfidence}, type: {type(current_mlConfidence)}")
 
                 if float(confidence) >= current_mlConfidence:
                     logging.info("Confidence passed, pushing to blacklist...")
