@@ -3,6 +3,8 @@ import struct
 import requests
 import threading
 import time
+import ipaddress
+import logging
 from pathlib import Path
 
 centralToken = "Token f990deebf6b6f888560a4b2bc131989496a55030"
@@ -11,59 +13,73 @@ myIP = "172.26.120.53"
 PIPE_NAME = "/shared/analysis_pipe"
 FORMAT = "=4s4sf"
 blacklist_path = Path('/shared/blacklist.txt')
+settings_path = Path('/shared/settings.txt')
 
-tempSettings = {
-    "mlPercentage": 100,
-    "caution": 5
-}
+mlCaution = 0.9
+
+logging.basicConfig(
+    filename = "/shared/ns_service_manager.log",
+    level = logging.INFO,
+    format = "%(asctime)s - %(levelname)s - %(message)s",
+    filemode = "a"
+)
 
 def pullBlacklist(centralToken):
-    while True:
+    try:
         url = "https://netsparrow.viktorkirk.com/settings/myblacklist/"
         headers = {
             "Authorization": str(centralToken),
             "Content-Type": "application/json"
         }
+        logging.info("Blacklist URL set...")
 
         response = requests.get(url, headers=headers)
-        print(response.json())
+        logging.info(response.json())
         blacklist_data = response.json()["myblacklists"]
 
-        #ACTUAL FUNCTION
         with open(blacklist_path, 'w', newline='') as file:
-            for i in blacklist_data:
-                ip = str(i["blacklist_entry__capturedpacket_entry__ip"])
+            for key in blacklist_data:
+                ip = str(key["blacklist_entry__capturedpacket_entry__ip"])
                 file.write(ip + "\n")
                 #url = str(i["blacklist_entry__capturedpacket_entry__url"])
+        logging.info("Finished writing new blacklist")
 
-        """ TESTING FUNCTION
-        with open("blacklist.txt", 'w', newline='') as file:
-            for i in blacklist_data:
-                ip = str(i["blacklist_entry__capturedpacket_entry__ip"])
-                file.write(ip + "\n")
-                #url = str(i["blacklist_entry__capturedpacket_entry__url"])
-        """
+    except Exception:
+        logging.info("Failed to pull blacklist, passing...")
 
-        time.sleep(5)
+def pullSettings(centralToken):
+    global mlCaution
+    try:
+        url = "https://netsparrow.viktorkirk.com/api/settings/get/pi/"
+        headers = {
+            "Authorization": str(centralToken),
+        }
+        logging.info("Settings URL set...")
 
-def pushBlacklist(centralToken):
-    url = "https://netsparrow.viktorkirk.com/packet_capture/"
-    headers = {
-        "Authorization": str(centralToken),
-        "Content-Type": "application/json"
-    }
+        response = requests.get(url, headers=headers)
+        logging.info(response.json())
+        settings_data = response.json()
 
-    with open(blacklist_path, 'r') as file:
-        for line in file:
-            data = {
-                "ip": line.strip()
-            }
-            print(data)
+        if "mlCaution" in settings_data:
+            mlCaution = settings_data["mlCaution"]
+            logging.info(f"New ML Confidence: {mlCaution}")
 
-            response = requests.post(url, headers=headers, json=data)
-            print(url, headers, data)
-            print("Status Code:", response.status_code)
-            print("Response JSON:", response.json())
+        with open(settings_path, 'w', newline='') as file:
+            for key, value in settings_data.items():
+                file.write(f"{key}={value}\n")
+
+        logging.info("Finished writing settings")
+
+    except Exception as e:
+        logging.info(f"Failed to pull settings with error: {str(e)}, passing...")
+
+def pullBoth(centralToken):
+    while True:
+        pullBlacklist(centralToken)
+        time.sleep(1)
+        pullSettings(centralToken)
+        logging.info("-" * 50)
+        time.sleep(4)
 
 def ip_bytes_to_string(ip_bytes):
     return '.'.join(str(b) for b in ip_bytes)
@@ -71,10 +87,10 @@ def ip_bytes_to_string(ip_bytes):
 def read_from_pipe():
     # Wait for the pipe to exist
     while not os.path.exists(PIPE_NAME):
-        print("Waiting for pipe to be created...")
+        logging.info("Waiting for pipe to be created...")
         time.sleep(1)
 
-    print(f"Opening pipe: {PIPE_NAME}")
+    logging.info(f"Opening pipe: {PIPE_NAME}")
     with open(PIPE_NAME, 'rb') as pipe:
         while True:
             try:
@@ -96,7 +112,10 @@ def read_from_pipe():
                 source_ip_str = ip_bytes_to_string(source_ip)
                 dest_ip_str = ip_bytes_to_string(dest_ip)
 
-                if confidence > 0.9:
+                logging.info(f"Packet read from pipe: {source_ip_str} -> {dest_ip_str} with confidence {confidence}")
+
+                if float(confidence) >= float(mlCaution):
+                    logging.info("Confidence passed, pushing to blacklist...")
                     if source_ip_str == myIP:
                         data = {
                             "ip": dest_ip_str
@@ -105,25 +124,35 @@ def read_from_pipe():
                         data = {
                             "ip": source_ip_str
                         }
+                    current_ip = ipaddress.ip_address(data["ip"])
 
-                    print(data)
-                    response = requests.post(url, headers=headers, json=data)
+                    exempt_ranges = [
+                        ipaddress.ip_network("10.0.0.0/8"), # 10.0.0.0 - 10.255.255.255
+                        ipaddress.ip_network("172.16.0.0/12"), # 172.16.0.0 - 172.31.255.255
+                        ipaddress.ip_network("192.168.0.0/16"), # 192.168.0.0 - 192.168.255.255
+                    ]
 
-                    print(f"Source IP: {source_ip_str}")
-                    print(f"Destination IP: {dest_ip_str}")
-                    print(f"Confidence: {confidence}")
-                    print("-" * 50)
+                    if any(current_ip in exempt_range for exempt_range in exempt_ranges):
+                        logging.info(f"Exempt IP: {data['ip']}")
+                        continue
 
-            except KeyboardInterrupt:
-                print("\nStopping...")
-                break
+                    else:
+                        logging.info(f"Pushing to blacklist: {current_ip}")
+                        logging.info(f"with confidence: {confidence}")
+                        logging.info("-" * 50)
+                        try:
+                            response = requests.post(url, headers=headers, json=data)
+                        except requests.exceptions.RequestException as e:
+                            logging.error(f"Failed to push to blacklist: {e}")
+                            continue
+
             except Exception as e:
-                print(f"Error reading from pipe: {e}")
-                time.sleep(0.1)
+                logging.error(f"Error reading from pipe: {e}")
+                time.sleep(0.5)
 
 if __name__ == "__main__":
     pipe_thread = threading.Thread(target=read_from_pipe, daemon=True)
-    communication_thread = threading.Thread(target=pullBlacklist, args=(centralToken,), daemon=True)
+    communication_thread = threading.Thread(target=pullBoth, args=(centralToken,), daemon=True)
 
     pipe_thread.start()
     communication_thread.start()
@@ -134,8 +163,3 @@ if __name__ == "__main__":
             time.sleep(1)
     except KeyboardInterrupt:
         print("\nShutting down gracefully...")
-
-""" # Det der virker
-    print("Reading from pipe")
-    read_from_pipe()
-"""

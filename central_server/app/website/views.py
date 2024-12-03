@@ -82,7 +82,7 @@ def update_settings(request):
             settings.notify_suspicious_activity = 'notify_suspicious_activity' in request.POST
 
             settings.save()
-            
+
             messages.success(request, 'Settings updated successfully')
 
             return redirect('mysettings')
@@ -210,7 +210,7 @@ def packet_capture(request):
 def settings_centralblacklist(request):
     if request.method == 'GET':
         try:
-            
+
             central_blacklist_entries = Blacklist.objects.all().values(
                 'capturedpacket_entry__ip',
                 'capturedpacket_entry__url'
@@ -249,7 +249,7 @@ def settings_add_to_myblacklist(request):
                     my_blacklist_entry, created = MyBlacklist.objects.get_or_create(
                         user=user, blacklist_entry=blacklist_entry
                     )
-                    
+
                     if created:
                         return JsonResponse({"success": "Entry added to your MyBlacklist."}, status=200)
                     else:
@@ -290,7 +290,7 @@ def settings_remove_from_myblacklist(request):
                 try:
                     blacklist_entry = Blacklist.objects.get(capturedpacket_entry=captured_packet)
                     my_blacklist_entry = MyBlacklist.objects.filter(user=user, blacklist_entry=blacklist_entry)
-                    
+
                     if my_blacklist_entry.exists():
                         my_blacklist_entry.delete()
                         return JsonResponse({"success": "Entry removed from your MyBlacklist."}, status=200)
@@ -325,6 +325,8 @@ def settings_update(request):
             settings.dark_mode = data.get('dark_mode', settings.dark_mode)
             settings.notify_blacklist_updates = data.get('notify_blacklist_updates', settings.notify_blacklist_updates)
             settings.notify_suspicious_activity = data.get('notify_suspicious_activity', settings.notify_suspicious_activity)
+            settings.ml_caution = data.get('mlCaution', settings.ml_caution)
+            settings.ml_percentage = data.get('mlPercentage', settings.ml_percentage)
 
             settings.save()
 
@@ -353,7 +355,29 @@ def settings_get(request):
                 "enable_ip_blocking": settings.enable_ip_blocking,
                 "dark_mode": settings.dark_mode,
                 "notify_blacklist_updates": settings.notify_blacklist_updates,
-                "notify_suspicious_activity": settings.notify_suspicious_activity
+                "notify_suspicious_activity": settings.notify_suspicious_activity,
+                "mlPercentage": settings.ml_percentage,
+                "mlCaution": settings.ml_caution
+            }, status=200)
+
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=500)
+
+    return JsonResponse({"error": "GET request required."}, status=405)
+
+# api; for getting pi specific settings
+@api_view(['GET'])
+@authentication_classes([TokenAuthentication])
+def settings_pi(request):
+    if request.method == 'GET':
+        try:
+            user = request.user
+
+            settings, created = MySettings.objects.get_or_create(user=user)
+
+            return JsonResponse({
+                "mlPercentage": settings.ml_percentage,
+                "mlCaution": settings.ml_caution
             }, status=200)
 
         except Exception as e:
