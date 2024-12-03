@@ -61,7 +61,7 @@ def pullSettings(centralToken):
         settings_data = response.json()
 
         if "mlConfidence" in settings_data:
-            mlConfidence = float(settings_data["mlConfidence"])
+            mlConfidence = settings_data["mlConfidence"]
             logging.info(f"New ML Confidence: {mlConfidence}")
 
         with open(settings_path, 'w', newline='') as file:
@@ -114,7 +114,7 @@ def read_from_pipe():
 
                 logging.info(f"Packet read from pipe: {source_ip_str} -> {dest_ip_str} with confidence {confidence}")
 
-                if confidence >= mlConfidence:
+                if float(confidence) >= float(mlConfidence):
                     if source_ip_str == myIP:
                         data = {
                             "ip": dest_ip_str
