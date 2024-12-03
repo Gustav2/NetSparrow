@@ -115,6 +115,7 @@ def read_from_pipe():
                 logging.info(f"Packet read from pipe: {source_ip_str} -> {dest_ip_str} with confidence {confidence}")
 
                 if float(confidence) >= float(mlConfidence):
+                    logging.info("Confidence passed, pushing to blacklist...")
                     if source_ip_str == myIP:
                         data = {
                             "ip": dest_ip_str
