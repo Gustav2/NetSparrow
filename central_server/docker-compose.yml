@@ -32,6 +32,7 @@ services:
       - db
     links:
       - db
+    restart: always
 
   caddy:
     container_name: caddy-container
@@ -46,6 +47,7 @@ services:
       - caddy_config:/config
     depends_on:
       - web
+    restart: always
 
 volumes:
   caddy_data:
