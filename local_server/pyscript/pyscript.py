@@ -78,6 +78,7 @@ def pullBoth(centralToken):
         pullBlacklist(centralToken)
         time.sleep(1)
         pullSettings(centralToken)
+        logging.info("-" * 50)
         time.sleep(4)
 
 def ip_bytes_to_string(ip_bytes):
