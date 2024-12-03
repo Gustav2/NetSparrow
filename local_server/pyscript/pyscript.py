@@ -5,8 +5,6 @@ import threading
 import time
 import ipaddress
 import logging
-from multiprocessing import Value
-import ctypes
 from pathlib import Path
 
 centralToken = "Token f990deebf6b6f888560a4b2bc131989496a55030"
@@ -17,7 +15,7 @@ FORMAT = "=4s4sf"
 blacklist_path = Path('/shared/blacklist.txt')
 settings_path = Path('/shared/settings.txt')
 
-ml_confidence = Value(ctypes.c_float, 0.9)
+mlCaution = 0.9
 
 logging.basicConfig(
     filename = "/shared/ns_service_manager.log",
@@ -50,7 +48,7 @@ def pullBlacklist(centralToken):
         logging.info("Failed to pull blacklist, passing...")
 
 def pullSettings(centralToken):
-    global mlConfidence
+    global mlCaution
     try:
         url = "https://netsparrow.viktorkirk.com/api/settings/get/pi/"
         headers = {
@@ -62,12 +60,9 @@ def pullSettings(centralToken):
         logging.info(response.json())
         settings_data = response.json()
 
-        if "mlConfidence" in settings_data:
-            new_confidence = float(settings_data["mlConfidence"])
-            logging.info(f"Updating ML Confidence from {ml_confidence.value} to {new_confidence}")
-            with ml_confidence.get_lock():
-                ml_confidence.value = new_confidence
-            logging.info(f"New ML Confidence set: {ml_confidence.value}")
+        if "mlCaution" in settings_data:
+            mlCaution = settings_data["mlCaution"]
+            logging.info(f"New ML Confidence: {mlCaution}")
 
         with open(settings_path, 'w', newline='') as file:
             for key, value in settings_data.items():
@@ -117,14 +112,9 @@ def read_from_pipe():
                 source_ip_str = ip_bytes_to_string(source_ip)
                 dest_ip_str = ip_bytes_to_string(dest_ip)
 
-                current_confidence = float(confidence)
-                with ml_confidence.get_lock():
-                    current_threshold = ml_confidence.value
+                logging.info(f"Packet read from pipe: {source_ip_str} -> {dest_ip_str} with confidence {confidence}")
 
-                logging.info(f"Packet read from pipe: {source_ip_str} -> {dest_ip_str}")
-                logging.info(f"Comparing confidence {current_confidence} against threshold {current_threshold}")
-
-                if current_confidence >= current_threshold:
+                if float(confidence) >= float(mlCaution):
                     logging.info("Confidence passed, pushing to blacklist...")
                     if source_ip_str == myIP:
                         data = {
