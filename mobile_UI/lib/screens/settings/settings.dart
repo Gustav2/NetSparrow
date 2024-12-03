@@ -4,7 +4,6 @@ import 'package:my_app/shared/styled_text.dart';
 import 'package:collection/collection.dart';
 import 'package:my_app/theme.dart';
 
-
 class Settings extends StatefulWidget {
   const Settings({super.key});
 
@@ -17,9 +16,9 @@ class _SettingsState extends State<Settings> {
   bool changesMade = false;
   bool snackbarShown = false;
 
-  Map<String, int> general = {
-    "Caution": 0,
-    "Other": 0,
+  Map<String, dynamic> sliders = {
+    "mlPercentage": 10,
+    "mlCaution": 0.5,
   };
 
   Map<String, bool> extra = {
@@ -35,9 +34,10 @@ class _SettingsState extends State<Settings> {
     "...  ": false,
     "...   ": false,
     "...    ": false,
-    "...     ": false,};
+    "...     ": false
+  };
 
-  late Map<String, int> initialGeneral;
+  late Map<String, dynamic> initialSliders;
   late Map<String, bool> initialExtra;
   late Map<String, dynamic> initialreal;
 
@@ -47,13 +47,13 @@ class _SettingsState extends State<Settings> {
 
     fetchSettingsData();
 
-    initialGeneral = Map.from(general);
+    initialSliders = Map.from(sliders);
     initialExtra = Map.from(extra);
     initialreal = Map.from(realsettings);
   }
 
   bool hasChanges() {
-    if (!MapEquality().equals(initialGeneral, general)) return true;
+    if (!MapEquality().equals(initialSliders, sliders)) return true;
     if (!MapEquality().equals(initialExtra, extra)) return true;
     if (!MapEquality().equals(initialreal, realsettings)) return true;
 
@@ -62,9 +62,21 @@ class _SettingsState extends State<Settings> {
 
   Future<void> postSettingsData() async {
     try {
-      await apiService.postSettings(realsettings);
+      Map<String, dynamic> postData = {};
+
+      realsettings.forEach((key, value) {
+        postData[key] = value;
+      });
+
+      sliders.forEach((key, value) {
+        postData[key] = value;
+      });
+
+      print(postData);
+
+      await apiService.postSettings(postData);
     } catch (e) {
-      print("error");
+      print(e);
     }
   }
 
@@ -73,7 +85,8 @@ class _SettingsState extends State<Settings> {
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
       snackbarShown = false;
       return;
-    };
+    }
+    ;
 
     setState(() {
       changesMade = true;
@@ -90,11 +103,12 @@ class _SettingsState extends State<Settings> {
             children: [
               TextButton(
                 style: ButtonStyle(
-                  backgroundColor: WidgetStateProperty.all(AppColors.primaryColor),
+                  backgroundColor:
+                      WidgetStateProperty.all(AppColors.primaryColor),
                 ),
                 onPressed: () {
                   setState(() {
-                    initialGeneral = Map.from(general);
+                    initialSliders = Map.from(sliders);
                     initialExtra = Map.from(extra);
                     initialreal = Map.from(realsettings);
                     changesMade = false;
@@ -122,9 +136,24 @@ class _SettingsState extends State<Settings> {
     try {
       Map<String, dynamic> settingsData = await apiService.getSettings();
 
+      Map<String, dynamic> sl = {};
+      Map<String, dynamic> rs = {};
+
+      settingsData.forEach((key, value) {
+        if (settingsData[key] is bool) {
+          rs[key] = value; 
+        } else if (settingsData[key] is int) {
+          sl["mlPercentage"] = value;
+        } else {
+          sl["mlCaution"] = double.parse(value);
+        }
+      });
+
       setState(() {
-        realsettings = Map.from(settingsData);
+        realsettings = Map.from(rs);
+        sliders = Map.from(sl);
         initialreal = Map.from(realsettings);
+        initialSliders = Map.from(sliders);
       });
     } catch (e) {
       print("error");
@@ -144,8 +173,7 @@ class _SettingsState extends State<Settings> {
       body: LayoutBuilder(
         builder: (BuildContext context, BoxConstraints constraints) {
           return Container(
-            height: constraints
-                .maxHeight,
+            height: constraints.maxHeight,
             decoration: const BoxDecoration(
               gradient: LinearGradient(
                 colors: [
@@ -163,8 +191,7 @@ class _SettingsState extends State<Settings> {
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: ConstrainedBox(
                   constraints: BoxConstraints(
-                    minHeight: constraints
-                        .maxHeight,
+                    minHeight: constraints.maxHeight,
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -177,31 +204,42 @@ class _SettingsState extends State<Settings> {
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: Column(
-                          children: general.entries.map((entry) {
-                            return Column(
-                              children: [
-                                Padding(
-                                  padding: const EdgeInsets.only(top: 16),
-                                  child: StyledText(entry.key),
-                                ),
-                                Slider(
-                                  value: entry.value.toDouble(),
-                                  min: 0,
-                                  max: 100,
-                                  divisions: 20,
-                                  label: entry.value.toString(),
-                                  onChanged: (double value) {
-                                    setState(() {
-                                      general[entry.key] = value.toInt();
-                                    });
-                                    fetch();
-                                  },
-                                ),
-                              ],
-                            );
-                          }).toList(),
-                        ),
+                        child: Column(children: [
+                          const Padding(
+                            padding: EdgeInsets.only(top: 16),
+                            child: StyledText("ML percentage"),
+                          ),
+                          Slider(
+                            value: sliders["mlPercentage"].toDouble(),
+                            min: 0,
+                            max: 100,
+                            divisions: 20,
+                            label: sliders["mlPercentage"].toString(),
+                            onChanged: (double value) {
+                              setState(() {
+                                sliders["mlPercentage"] = value.round();
+                              });
+                              fetch();
+                            },
+                          ),
+                          const Padding(
+                            padding: EdgeInsets.only(bottom: 16),
+                            child: StyledText('ML Caution'),
+                          ),
+                          Slider(
+                            value: sliders["mlCaution"].toDouble(),
+                            min: 0,
+                            max: 1,
+                            divisions: 10,
+                            label: sliders["mlCaution"].toString(),
+                            onChanged: (double value) {
+                              setState(() {
+                                sliders["mlCaution"] = value;
+                              });
+                              fetch();
+                            },
+                          ),
+                        ]),
                       ),
                       const SizedBox(height: 16),
                       const StyledHeading('Settings'),
