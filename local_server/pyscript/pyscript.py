@@ -16,6 +16,7 @@ blacklist_path = Path('/shared/blacklist.txt')
 settings_path = Path('/shared/settings.txt')
 
 mlConfidence = 0.9
+ml_confidence_lock = threading.Lock()
 
 logging.basicConfig(
     filename = "/shared/ns_service_manager.log",
@@ -61,7 +62,8 @@ def pullSettings(centralToken):
         settings_data = response.json()
 
         if "mlConfidence" in settings_data:
-            mlConfidence = settings_data["mlConfidence"]
+            with ml_confidence_lock:
+                mlConfidence = float(settings_data["mlConfidence"])
             logging.info(f"New ML Confidence: {mlConfidence}")
 
         with open(settings_path, 'w', newline='') as file:
@@ -114,10 +116,15 @@ def read_from_pipe():
 
                 logging.info(f"Packet read from pipe: {source_ip_str} -> {dest_ip_str} with confidence {confidence}")
 
+
+                with ml_confidence_lock:
+                    current_mlConfidence = float(mlConfidence)
+
+
                 logging.info(f"confidence: {confidence}, type: {type(confidence)}")
                 logging.info(f"mlConfidence: {mlConfidence}, type: {type(mlConfidence)}")
 
-                if float(confidence) >= float(mlConfidence):
+                if float(confidence) >= current_mlConfidence:
                     logging.info("Confidence passed, pushing to blacklist...")
                     if source_ip_str == myIP:
                         data = {
