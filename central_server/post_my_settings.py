@@ -14,6 +14,8 @@ data = {
     "dark_mode": True,
     "notify_blacklist_updates": False,
     "notify_suspicious_activity": True,
+    "mlCaution" : 0.9,
+    "mlPercentage" : 70,
 }
 
 response = requests.post(url, json=data, headers=headers)
