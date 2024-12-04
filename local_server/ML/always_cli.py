@@ -61,8 +61,8 @@ def read_packet(pipe_fd):
         hex_data = ' '.join(f"{b:02x}" for b in raw_data)
         print(f"""
             Received packet: {hex_data}
-            Src IP: {unpacked[1]}
-            Dest IP: {unpacked[2]}
+            Src IP: {'.'.join(str(b) for b in unpacked[1])}
+            Dest IP: {'.'.join(str(b) for b in unpacked[2])}
             Packet size: {unpacked[3]}
             Protocol: {unpacked[4]}
             Timestamp: {datetime.fromtimestamp(unpacked[0])}
@@ -227,9 +227,8 @@ def process_batch(model, packet_buffer, output_fd):
         # Write each packet's IPs to the output pipe in binary format
         for i, packet in enumerate(packet_buffer):
             # Only output if confidence is below threshold
-            if confidences[i] < CONFIDENCE_THRESHOLD:  # Low confidence threshold
-                if not write_packet_data(output_fd, packet.source_ip, packet.dest_ip, confidences[i]):
-                    return False
+            if not write_packet_data(output_fd, packet.source_ip, packet.dest_ip, confidences[i]):
+                return False
         return True
     except Exception as e:
         print(f"Error processing batch: {e}")
