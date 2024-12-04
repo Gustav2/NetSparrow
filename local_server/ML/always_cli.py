@@ -61,8 +61,8 @@ def read_packet(pipe_fd):
         hex_data = ' '.join(f"{b:02x}" for b in raw_data)
         print(f"""
             Received packet: {hex_data}
-            Src IP: {'.'.join(str(b) for b in unpacked[1])}
-            Dest IP: {'.'.join(str(b) for b in unpacked[2])}
+            Src IP: {unpacked[1]}
+            Dest IP: {unpacked[2]}
             Packet size: {unpacked[3]}
             Protocol: {unpacked[4]}
             Timestamp: {datetime.fromtimestamp(unpacked[0])}
@@ -224,12 +224,21 @@ def process_batch(model, packet_buffer, output_fd):
         predictions = model.predict(preprocessed_data, verbose=0)
         confidences = predictions.squeeze()
 
-        # Write each packet's IPs to the output pipe in binary format
+        if confidences.ndim == 0:
+            confidences = np.array([confidences])
+        elif confidences.ndim > 1:
+            confidences = confidences.flatten()
+
         for i, packet in enumerate(packet_buffer):
-            # Only output if confidence is below threshold
-            if not write_packet_data(output_fd, packet.source_ip, packet.dest_ip, confidences[i]):
-                return False
+            if confidences[i] < CONFIDENCE_THRESHOLD:
+                if not write_packet_data(output_fd, packet.source_ip, packet.dest_ip, confidences[i]):
+                    print(f"Failed to write packet data for packet {i}")
+                    continue  # Continue processing other packets
+
         return True
+    except tf.errors.InvalidArgumentError as e:
+        print(f"TensorFlow error: {e}")
+        return False
     except Exception as e:
         print(f"Error processing batch: {e}")
         return False
