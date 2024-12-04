@@ -56,6 +56,16 @@ def read_packet(pipe_fd):
         if not raw_data:
             return None
 
+        hex_data = ' '.join(f"{b:02x}" for b in raw_data)
+        print(f"""
+            Received packet: {hex_data}
+            Src IP: {raw_data[4:8]}
+            Dest IP: {raw_data[8:12]}
+            Packet size: {struct.unpack('=H', raw_data[12:14])[0]}
+            Protocol: {struct.unpack('=B', raw_data[14:15])[0]}
+            """)
+        
+
         unpacked = struct.unpack(fmt, raw_data)
         return PacketData(
             timestamp=unpacked[0],
