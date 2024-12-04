@@ -3,6 +3,7 @@ import 'package:my_app/models/blacklist_card.dart';
 import 'package:my_app/models/data_from_api.dart';
 import 'package:my_app/screens/blacklist/edit_blacklist.dart';
 import 'package:my_app/shared/styled_text.dart';
+import 'package:my_app/models/reverse_lookup.dart';
 
 class Blacklist extends StatefulWidget {
   const Blacklist({super.key});
@@ -19,8 +20,8 @@ class _BlacklistState extends State<Blacklist> {
   List blacklist = [];
   List myBlacklist = [];
   bool loading = false;
-  int maxEntriesBlocked = 10;
-  int maxEntriesIgnored = 10;
+  int maxEntriesBlocked = 500;
+  int maxEntriesIgnored = 500;
 
   @override
   void initState() {
@@ -40,6 +41,11 @@ class _BlacklistState extends State<Blacklist> {
     } catch (e) {
       print("Error fetching data: $e");
     }
+  }
+
+  Future<String> _resolveDns(String url) async {
+    final reverseLookup = ReverseLookup(ip: url);
+    return await reverseLookup.resolveIpToDomain(url);
   }
 
   Widget _buildShowMoreButton(VoidCallback onPressed) {
@@ -71,11 +77,16 @@ class _BlacklistState extends State<Blacklist> {
               entry['capturedpacket_entry__ip']);
 
           if (isBlocked) {
-            return BlacklistCard(
-              entry['capturedpacket_entry__ip'] ?? 'Unknown IP',
-              entry['capturedpacket_entry__url'] ?? 'No URL',
-              'blocked',
-              fetch: fetchFirewallData,
+            return FutureBuilder<String>(
+              future: _resolveDns(entry['capturedpacket_entry__ip']),
+              builder: (context, snapshot) {
+                return BlacklistCard(
+                  entry['capturedpacket_entry__ip'] ?? 'Unknown IP',
+                  snapshot.data ?? 'Resolving...',
+                  'blocked',
+                  fetch: fetchFirewallData,
+                );
+              },
             );
           }
           return Container();
@@ -101,11 +112,16 @@ class _BlacklistState extends State<Blacklist> {
               entry['capturedpacket_entry__ip']);
 
           if (!isBlocked) {
-            return BlacklistCard(
-              entry['capturedpacket_entry__ip'] ?? 'Unknown IP',
-              entry['capturedpacket_entry__url'] ?? 'No URL',
-              'none',
-              fetch: fetchFirewallData,
+            return FutureBuilder<String>(
+              future: _resolveDns(entry['capturedpacket_entry__ip']),
+              builder: (context, snapshot) {
+                return BlacklistCard(
+                  entry['capturedpacket_entry__ip'] ?? 'Unknown IP',
+                  snapshot.data ?? 'Resolving...',
+                  'none',
+                  fetch: fetchFirewallData,
+                );
+              },
             );
           }
           return Container();

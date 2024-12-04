@@ -39,6 +39,7 @@ dependencies:
   fl_chart: ^0.69.0
   collection: ^1.17.1
   mockito: ^5.0.15
+  dnsolve: ^1.0.0
 
 dev_dependencies:
   flutter_test:

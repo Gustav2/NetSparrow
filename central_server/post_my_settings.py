@@ -8,14 +8,14 @@ headers = {
 }
 
 data = {
-    "auto_add_blacklist": False,
+    "auto_add_blacklist": True,
     "log_suspicious_packets": True,
     "enable_ip_blocking": False,
     "dark_mode": True,
     "notify_blacklist_updates": False,
     "notify_suspicious_activity": True,
     "mlCaution" : 0.9,
-    "mlPercentage" : 70,
+    "mlPercentage" : 1,
 }
 
 response = requests.post(url, json=data, headers=headers)

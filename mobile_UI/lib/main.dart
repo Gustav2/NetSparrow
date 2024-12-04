@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:my_app/screens/home/home.dart';
 import 'package:my_app/theme.dart';
 import 'package:my_app/models/data_from_api.dart';
+import 'package:dnsolve/dnsolve.dart';
+import 'package:my_app/models/reverse_lookup.dart';
+import 'dart:io';
 void main() {
   runApp(MaterialApp(
     debugShowCheckedModeBanner: false,
@@ -19,12 +22,16 @@ class Sandbox extends StatefulWidget {
 
 class _SandboxState extends State<Sandbox> {
   final ApiService _apiService = ApiService();
+  
+
   String _status = "Loading...";
+  String domain = "Loading...";
 
   @override
   void initState() {
     super.initState();
     _fetchFirewallData();
+    _resolveDomain("54.144.211.88");  // Replace with your IP
   }
 
   Future<void> _fetchFirewallData() async {
@@ -44,11 +51,18 @@ class _SandboxState extends State<Sandbox> {
     }
   }
 
+  Future<void> _resolveDomain(String ip) async {
+    final result = await ReverseLookup(ip: ip).resolveIpToDomain(ip);
+    setState(() {
+      domain = result;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Center(
-        child: Text(_status),
+        child: Text(domain),
       ),
     );
   }

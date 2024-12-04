@@ -3,6 +3,7 @@ import 'package:my_app/models/blacklist_card.dart';
 import 'package:my_app/models/data_from_api.dart';
 import 'package:my_app/screens/blacklist/blacklist_menu_bar.dart';
 import 'package:my_app/shared/styled_text.dart';
+import 'package:my_app/models/reverse_lookup.dart';
 
 class EditBlacklist extends StatefulWidget {
   const EditBlacklist({super.key});
@@ -24,6 +25,11 @@ class _HomeState extends State<EditBlacklist> {
   void initState() {
     super.initState();
     fetchFirewallData();
+  }
+
+  Future<String> _resolveDns(String url) async {
+    final reverseLookup = ReverseLookup(ip: url);
+    return await reverseLookup.resolveIpToDomain(url);
   }
 
   Future<void> setLoading(bool value) async {
@@ -151,19 +157,30 @@ class _HomeState extends State<EditBlacklist> {
               (entry['capturedpacket_entry__ip'] ?? 'Unknown IP').toLowerCase();
           final url =
               (entry['capturedpacket_entry__url'] ?? 'No URL').toLowerCase();
-          return filter.isEmpty || ip.contains(filter) || url.contains(filter);
+          return ip.contains(filter);
         })
         .take(maxEntries)
         .map((entry) {
           final isChecked =
               blockedIPs.contains(entry['capturedpacket_entry__ip']);
 
-          return BlacklistCard(
-            entry['capturedpacket_entry__ip'] ?? 'Unknown IP',
-            entry['capturedpacket_entry__url'] ?? 'No URL',
-            isChecked ? 'checked' : 'unchecked',
-            fetch: fetchFirewallData,
-          );
+          return FutureBuilder<String>(
+              future: _resolveDns(entry['capturedpacket_entry__ip']),
+              builder: (context, snapshot) {
+                final domain = snapshot.data;
+                print(domain);
+                print(filter);
+                if (filter.isEmpty || (domain != null && domain.toLowerCase().contains(filter))) {
+                  return BlacklistCard(
+                    entry['capturedpacket_entry__ip'] ?? 'Unknown IP',
+                    domain ?? 'Resolving...',
+                    isChecked ? 'checked' : 'unchecked',
+                    fetch: fetchFirewallData,
+                  );
+                }
+                return Container();
+              },
+            );
         })
         .toList();
   }
