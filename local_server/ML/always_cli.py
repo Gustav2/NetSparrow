@@ -230,10 +230,9 @@ def process_batch(model, packet_buffer, output_fd):
             confidences = confidences.flatten()
 
         for i, packet in enumerate(packet_buffer):
-            if confidences[i] < CONFIDENCE_THRESHOLD:
-                if not write_packet_data(output_fd, packet.source_ip, packet.dest_ip, confidences[i]):
-                    print(f"Failed to write packet data for packet {i}")
-                    continue  # Continue processing other packets
+            if not write_packet_data(output_fd, packet.source_ip, packet.dest_ip, confidences[i]):
+                print(f"Failed to write packet data for packet {i}")
+                continue  # Continue processing other packets
 
         return True
     except tf.errors.InvalidArgumentError as e:
