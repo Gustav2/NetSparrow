@@ -20,25 +20,27 @@
 #include <sys/types.h>
 #include <fcntl.h>
 #include <errno.h>
-#include <sys/inotify.h>   
-#include <glib.h> // For hash table
-#include <arpa/inet.h> // For inet_pton
+#include <sys/inotify.h>
+#include <glib.h> 
+#include <arpa/inet.h>
 
+// Constants & Macros
 #define SNAP_LEN 1518
 #define ERRBUF_SIZE 256
 #define BLACKLIST_MAX 2048
 #define IP_STR_LEN 16
 #define BATCH_SIZE 32
-#define PIPE_PATH "/shared/packet_log_pipe" // Define the pipe path
+#define PIPE_PATH "/shared/packet_log_pipe"
 #define BUFFER_SIZE 256
 
+// Struct Definitions
 typedef struct __attribute__((packed)) {
-    uint32_t timestamp;      // Network byte order
-    uint8_t src_ip[4];      // Raw IP bytes
-    uint8_t dst_ip[4];      // Raw IP bytes
-    uint16_t packet_size;    // Network byte order
-    uint8_t protocol;       // Protocol number
-    uint8_t data[1500];     // Raw packet data
+    uint32_t timestamp;
+    uint8_t src_ip[4];
+    uint8_t dst_ip[4];
+    uint16_t packet_size;
+    uint8_t protocol;
+    uint8_t data[1500];
 } binary_packet_t;
 
 typedef struct {
@@ -47,6 +49,7 @@ typedef struct {
     int mtu;
 } forwarder_args_t;
 
+// Global Variables
 GHashTable *blacklist_set; 
 char *blacklist_file_path;
 char *settings_file_path;
@@ -54,13 +57,32 @@ pthread_mutex_t blacklist_mutex = PTHREAD_MUTEX_INITIALIZER;
 time_t last_blacklist_modified_time = 0;
 time_t last_settings_modified_time = 0;
 int mlPercentage = 100;
+FILE *log_file;
+int pipe_fd = -1;
 
-char blacklist[BLACKLIST_MAX][IP_STR_LEN];
-int blacklist_count = 0;
+// not sure if this is needed or used
 volatile int keep_running = 1;
+char blacklist[BLACKLIST_MAX][IP_STR_LEN];
 
-FILE *log_file; // Global log file pointer
-int pipe_fd = -1; // Named pipe file descriptor
+
+// Function Declarations
+unsigned short checksum(void *b, int len);
+int is_valid_ip(const char *ip);
+void send_tcp_reset(const u_char *packet, int packet_len);
+void handle_signal(int signal);
+time_t get_file_modification_time(const char *filename);
+void load_blacklist_to_hash(const char *filename);
+void load_settings(const char *filename);
+int is_blacklisted(const char *ip);
+void *monitor_blacklist(void *arg);
+void packet_to_pipe(const u_char *packet, int packet_len);
+void *forward_packets(void *args);
+int get_interface_mtu(const char *interface_name);
+void optimize_interface(const char *interface_name);
+void init_pipe_and_log();
+
+
+// Helper Functions (Packet Processing, Blacklist Management, etc.)
 
 // Function to calculate checksum
 unsigned short checksum(void *b, int len) {
@@ -77,12 +99,13 @@ unsigned short checksum(void *b, int len) {
     return ~sum;
 }
 
+// Check if an IP address is valid
 int is_valid_ip(const char *ip) {
     struct sockaddr_in sa;
     return inet_pton(AF_INET, ip, &(sa.sin_addr)) == 1;
 }
 
-// Send RST to terminate original connection
+// Send TCP Reset (RST) to terminate original connection
 void send_tcp_reset(const u_char *packet, int packet_len) {
     struct ip *ip_hdr = (struct ip *)(packet + 14);
     struct tcphdr *tcp_hdr = (struct tcphdr *)(packet + 14 + (ip_hdr->ip_hl * 4));
@@ -162,7 +185,7 @@ void handle_signal(int signal) {
     keep_running = 0;
 }
 
-// Function to get file modification time
+// Get the last modification time of a file
 time_t get_file_modification_time(const char *filename) {
     struct stat file_stat;
     if (stat(filename, &file_stat) == 0) {
@@ -171,7 +194,7 @@ time_t get_file_modification_time(const char *filename) {
     return 0;
 }
 
-// Load blacklist file into memory using hash table
+// Load blacklist from file into a hash table
 void load_blacklist_to_hash(const char *filename) {
     FILE *file = fopen(filename, "r");
     if (!file) {
@@ -203,7 +226,7 @@ void load_blacklist_to_hash(const char *filename) {
     fflush(log_file);
 }
 
-// for loading settings
+// Load settings from a configuration file
 void load_settings(const char *filename) {
     FILE *file = fopen(filename, "r");
     if (!file) {
@@ -245,10 +268,10 @@ int is_blacklisted(const char *ip) {
         result = 1;
     }
     pthread_mutex_unlock(&blacklist_mutex);
-
     return result;
 } 
 
+// Monitor changes in the blacklist and settings files
 void *monitor_blacklist(void *arg) {
     while (keep_running) {
         // Monitor blacklist file
@@ -280,14 +303,12 @@ void *monitor_blacklist(void *arg) {
             }
         }
 
-        sleep(1); // Check every second
+        sleep(10); // Check every second
     }
     return NULL;
 }
 
-
-
-// Add function to send packet data through pipe
+// Function to send packet data to a pipe
 void packet_to_pipe(const u_char *packet, int packet_len) {
     struct ip *ip_hdr = (struct ip *)(packet + 14); // Skip Ethernet header
     binary_packet_t binary_packet;
@@ -325,7 +346,7 @@ void packet_to_pipe(const u_char *packet, int packet_len) {
     }
 }
 
-// Forward packets between interfaces with blacklist filtering
+// Forward packets between interfaces, filtering by blacklist
 void *forward_packets(void *args) {
     forwarder_args_t *forward_args = (forwarder_args_t *)args;
     pcap_t *source_handle = forward_args->source_handle;
@@ -398,7 +419,7 @@ int get_interface_mtu(const char *interface_name) {
     return ifr.ifr_mtu;
 }
 
-// Optimize interface settings
+// Optimize network interface settings
 void optimize_interface(const char *interface_name) {
     fprintf(log_file, "Optimizing interface %s\n", interface_name);
     fflush(log_file);
@@ -411,35 +432,9 @@ void optimize_interface(const char *interface_name) {
     system(command);
 }
 
-int main(int argc, char *argv[]) {
-    if (argc != 5) {
-        fprintf(stderr, "Usage: %s <interface1> <interface2> <blacklist_file> <settings_file>\n", argv[0]);
-        exit(EXIT_FAILURE);
-    }
-    printf("Test");
-    fprintf(stderr, "hej");
-    char *interface1 = argv[1];
-    char *interface2 = argv[2];
-    char *blacklist_file_path = argv[3];
-    settings_file_path = argv[4];
-    char errbuf[ERRBUF_SIZE];
-    int fd; // Declare globally without initialization
-    int wd; // Declare globally without initialization
-
-    fd = inotify_init();
-    if (fd < 0) {
-        perror("inotify_init");
-        return NULL; // Or handle the error as needed
-    }
-
-    wd = inotify_add_watch(fd, blacklist_file_path, IN_MODIFY | IN_CREATE | IN_DELETE);
-    if (wd < 0) {
-        perror("inotify_add_watch");
-        close(fd);
-        return NULL; // Or handle the error as needed
-    }
-
-    // Create log directory if it doesn't exist
+// Main Initialization (Logging, Pipe Setup)
+void init_pipe_and_log() {
+    // Create log directory if not present
     if (mkdir("/shared/forwarder_logs", 0755) == -1 && errno != EEXIST) {
         perror("Error creating log directory");
         exit(EXIT_FAILURE);
@@ -452,38 +447,51 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
-     // Create the named pipe and handle potential errors
+    // Create and handle the named pipe
     if (mkfifo(PIPE_PATH, 0666) == -1) {
         if (errno != EEXIST) {
             fprintf(stderr, "Error creating named pipe '%s': %s\n", PIPE_PATH, strerror(errno));
             exit(EXIT_FAILURE);
-        } else {
-            fprintf(log_file, "Named pipe '%s' already exists, proceeding...\n", PIPE_PATH);
-            fflush(log_file);
         }
     }
-    FILE *pipe_file = fopen(PIPE_PATH, "w");
-    if (pipe_file == NULL) {
-        perror("Error opening pipe");
-        return 1;
-    }
 
-    // Open the pipe for writing in non-blocking mode
     pipe_fd = open(PIPE_PATH, O_WRONLY | O_NONBLOCK);
     if (pipe_fd == -1) {
         fprintf(stderr, "Error opening named pipe '%s': %s\n", PIPE_PATH, strerror(errno));
-        fclose(log_file);  // Clean up
+        fclose(log_file);
         exit(EXIT_FAILURE);
     }
+}
+
+
+// Main Function
+int main(int argc, char *argv[]) {
+    if (argc != 5) {
+        fprintf(stderr, "Usage: %s <interface1> <interface2> <blacklist_file> <settings_file>\n", argv[0]);
+        exit(EXIT_FAILURE);
+    }
+
+    char *interface1 = argv[1];
+    char *interface2 = argv[2];
+    blacklist_file_path = argv[3];
+    settings_file_path = argv[4];
+
+    // Initialize pipe and log
+    init_pipe_and_log();
+
+
+    // not sure if this is needed or used
+    //char errbuf[ERRBUF_SIZE];
 
     // Get initial modification time
     last_blacklist_modified_time = get_file_modification_time(blacklist_file_path);
     last_settings_modified_time = get_file_modification_time(settings_file_path);
 
-    // Load the blacklist
+    // Load the blacklist and settings
     load_blacklist_to_hash(blacklist_file_path);
+    load_settings(settings_file_path);
 
-    // Set up signal handling
+    // Signal handling for graceful termination
     signal(SIGINT, handle_signal);
     signal(SIGTERM, handle_signal);
 
@@ -491,17 +499,18 @@ int main(int argc, char *argv[]) {
     optimize_interface(interface1);
     optimize_interface(interface2);
 
-    nice(-20); // Set process to high priority
+    // Set the process to high priority
+    nice(-20);
 
+    // Get MTUs for both interfaces
     int mtu1 = get_interface_mtu(interface1);
     int mtu2 = get_interface_mtu(interface2);
-
     if (mtu1 == -1 || mtu2 == -1) {
         fprintf(stderr, "Error getting MTU for interfaces\n");
         exit(EXIT_FAILURE);
     }
 
-    // Create pcap handles for both interfaces
+    // Set up pcap handles for both interfaces
     pcap_t *handle1 = pcap_create(interface1, errbuf);
     pcap_t *handle2 = pcap_create(interface2, errbuf);
     if (!handle1 || !handle2) {
@@ -514,10 +523,9 @@ int main(int argc, char *argv[]) {
     for (size_t i = 0; i < 2; i++) {
         pcap_set_snaplen(handles[i], SNAP_LEN);
         pcap_set_promisc(handles[i], 1);
-        pcap_set_timeout(handles[i], 10); // Increase timeout to 10ms
-        pcap_set_buffer_size(handles[i], 1024 * 1024 * 64); // 64MB buffer
+        pcap_set_timeout(handles[i], 10); 
+        pcap_set_buffer_size(handles[i], 1024 * 1024 * 64); 
         pcap_set_immediate_mode(handles[i], 1);
-
         if (pcap_activate(handles[i]) != 0) {
             fprintf(stderr, "Error activating capture: %s\n", pcap_geterr(handles[i]));
             exit(EXIT_FAILURE);
@@ -527,49 +535,25 @@ int main(int argc, char *argv[]) {
     fprintf(log_file, "Forwarding packets between %s and %s...\n", interface1, interface2);
     fflush(log_file);
 
-    pthread_t thread1, thread2;
+    // Create threads for packet forwarding and blacklist monitoring
+    pthread_t thread1, thread2, monitor_thread;
     forwarder_args_t forward1 = {handle1, handle2, mtu2};
     forwarder_args_t forward2 = {handle2, handle1, mtu1};
 
-    // Create monitoring thread
-    pthread_t monitor_thread;
-    if (pthread_create(&monitor_thread, NULL, monitor_blacklist, NULL) != 0) {
-        fprintf(stderr, "Error creating monitoring thread\n");
-        exit(EXIT_FAILURE);
-    }
+    pthread_create(&thread1, NULL, forward_packets, (void *)&forward1);
+    pthread_create(&thread2, NULL, forward_packets, (void *)&forward2);
+    pthread_create(&monitor_thread, NULL, monitor_blacklist, NULL);
 
-    // Set high priority for threads
-    pthread_attr_t attr;
-    struct sched_param param;
-    pthread_attr_init(&attr);
-    pthread_attr_setschedpolicy(&attr, SCHED_FIFO);
-    param.sched_priority = 50;
-    pthread_attr_setschedparam(&attr, &param);
-
-    if (pthread_create(&thread1, &attr, forward_packets, &forward1) != 0) {
-        fprintf(stderr, "Error creating thread for %s -> %s\n", interface1, interface2);
-        exit(EXIT_FAILURE);
-    }
-
-    if (pthread_create(&thread2, &attr, forward_packets, &forward2) != 0) {
-        fprintf(stderr, "Error creating thread for %s -> %s\n", interface2, interface1);
-        exit(EXIT_FAILURE);
-    }
-
+    // Wait for threads to finish (if necessary)
     pthread_join(thread1, NULL);
     pthread_join(thread2, NULL);
     pthread_join(monitor_thread, NULL);
-    pthread_mutex_destroy(&blacklist_mutex);
 
+    // Cleanup
+    fclose(log_file);
+    close(pipe_fd);
     pcap_close(handle1);
     pcap_close(handle2);
-
-    // Close the pipe before exiting
-    close(pipe_fd);
-    unlink(PIPE_PATH);
-
-    // Close the log file
-    fclose(log_file);
 
     return 0;
 }
