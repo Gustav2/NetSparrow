@@ -447,18 +447,27 @@ void init_pipe_and_log() {
         exit(EXIT_FAILURE);
     }
 
-    // Create and handle the named pipe
+    // Create the named pipe and handle potential errors
     if (mkfifo(PIPE_PATH, 0666) == -1) {
         if (errno != EEXIST) {
             fprintf(stderr, "Error creating named pipe '%s': %s\n", PIPE_PATH, strerror(errno));
             exit(EXIT_FAILURE);
+        } else {
+            fprintf(log_file, "Named pipe '%s' already exists, proceeding...\n", PIPE_PATH);
+            fflush(log_file);
         }
     }
+    FILE *pipe_file = fopen(PIPE_PATH, "w");
+    if (pipe_file == NULL) {
+        perror("Error opening pipe");
+        return 1;
+    }
 
+    // Open the pipe for writing in non-blocking mode
     pipe_fd = open(PIPE_PATH, O_WRONLY | O_NONBLOCK);
     if (pipe_fd == -1) {
         fprintf(stderr, "Error opening named pipe '%s': %s\n", PIPE_PATH, strerror(errno));
-        fclose(log_file);
+        fclose(log_file);  // Clean up
         exit(EXIT_FAILURE);
     }
 }
