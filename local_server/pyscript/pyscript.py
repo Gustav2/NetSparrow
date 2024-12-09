@@ -135,6 +135,7 @@ def read_from_pipe():
                     exempt_ranges = [
                         ipaddress.ip_network("0.0.0.0"), #
                         ipaddress.ip_network("130.225.37.168"), # strato
+                        ipaddress.ip_network("140.82.0.0/16"), # git circa
                         ipaddress.ip_network("10.0.0.0/8"), # 10.0.0.0 - 10.255.255.255
                         ipaddress.ip_network("172.16.0.0/12"), # 172.16.0.0 - 172.31.255.255
                         ipaddress.ip_network("192.168.0.0/16"), # 192.168.0.0 - 192.168.255.255
