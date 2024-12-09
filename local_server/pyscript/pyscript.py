@@ -39,7 +39,7 @@ def pull_blacklist(CENTRALTOKEN):
         logging.info("Blacklist URL set...")
 
         response = requests.get(url, headers=headers)
-        logging.info(response.json())
+        logging.info("Got blacklist data...")
         blacklist_data = response.json()["myblacklists"]
 
         with open(BLACKLIST_PATH, 'w', newline='') as file:
@@ -47,7 +47,7 @@ def pull_blacklist(CENTRALTOKEN):
                 ip = str(key["blacklist_entry__capturedpacket_entry__ip"])
                 file.write(ip + "\n")
 
-        logging.info("Finished writing new blacklist")
+        logging.info(f"Finished writing new blacklist of {len(blacklist_data)} entries")
 
     except Exception:
         logging.info("Failed to pull blacklist, passing...")
