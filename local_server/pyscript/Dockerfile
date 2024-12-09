@@ -5,7 +5,7 @@ FROM python:3.12-alpine
 WORKDIR /pyscript
 
 # Copy the Python script into the container
-COPY . /app
+COPY . /pyscript
 
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
