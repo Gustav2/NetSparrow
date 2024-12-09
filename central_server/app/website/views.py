@@ -131,17 +131,44 @@ def remove_from_my_blacklist(request, blacklist_id):
     return redirect('myblacklist')
 
 
+#def add_all_to_my_blacklist(request):#
+#    if request.user.is_authenticated:#
+#        all_blacklists = Blacklist.objects.all()#
+#        for blacklist_entry in all_blacklists:#
+#            MyBlacklist.objects.get_or_create(user=request.user, blackl#ist_entry#=blacklist_entry)
+#
+#        messages.success(request, 'All entries have been added to your MyBlacklist.')
+#    else:
+#        messages.error(request, 'You need to be logged in to add entries to your MyBlacklist.')
+#
+#    return redirect('central_blacklist')
+
 def add_all_to_my_blacklist(request):
-    if request.user.is_authenticated:
-        all_blacklists = Blacklist.objects.all()
-        for blacklist_entry in all_blacklists:
-            MyBlacklist.objects.get_or_create(user=request.user, blacklist_entry=blacklist_entry)
-
-        messages.success(request, 'All entries have been added to your MyBlacklist.')
-    else:
+    if not request.user.is_authenticated:
         messages.error(request, 'You need to be logged in to add entries to your MyBlacklist.')
+        return redirect('central_blacklist')
 
+    # Fetch all blacklist entries
+    all_blacklists = Blacklist.objects.all()
+
+    # Retrieve existing MyBlacklist entries for the user to avoid duplicates
+    existing_entries = set(
+        MyBlacklist.objects.filter(user=request.user).values_list('blacklist_entry_id', flat=True)
+    )
+
+    # Prepare new entries to add
+    new_entries = [
+        MyBlacklist(user=request.user, blacklist_entry=entry)
+        for entry in all_blacklists
+        if entry.id not in existing_entries
+    ]
+
+    # Bulk create new entries
+    MyBlacklist.objects.bulk_create(new_entries, ignore_conflicts=True)
+
+    messages.success(request, 'All entries have been added to your MyBlacklist.')
     return redirect('central_blacklist')
+
 
 def remove_all_from_my_blacklist(request):
     if request.user.is_authenticated:
