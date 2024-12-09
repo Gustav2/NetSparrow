@@ -121,7 +121,7 @@ def read_from_pipe():
                 #logging.info(f"Packet read from pipe: {source_ip_str} -> {dest_ip_str} with confidence {confidence}")
 
                 if float(confidence) >= float(ml_confidence_threshold):
-                    logging.info("Confidence passed, pushing to blacklist...")
+                    #logging.info("Confidence passed, pushing to blacklist...")
                     if source_ip_str == myIP:
                         data = {
                             "ip": dest_ip_str
@@ -142,14 +142,14 @@ def read_from_pipe():
                     ]
 
                     if any(current_ip in exempt_range for exempt_range in exempt_ranges):
-                        logging.info(f"Exempt IP: {data['ip']}")
+                        #logging.info(f"Exempt IP: {data['ip']}")
                         continue
 
                     else:
                         logging.info(f"Pushing to blacklist: {current_ip} with confidence: {confidence}")
                         try:
                             response = requests.post(url, headers=headers, json=data)
-                        except requests.exceptions.RequestException as e:
+                        except Exception as e:
                             logging.error(f"Failed to push to blacklist: {e}")
                             logging.info("--x--" * 10)
                             continue
