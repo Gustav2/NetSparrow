@@ -5,30 +5,35 @@ import threading
 import time
 import ipaddress
 import logging
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
-centralToken = "Token f990deebf6b6f888560a4b2bc131989496a55030"
 myIP = "172.26.120.53"
-
+CENTRALTOKEN = "Token f990deebf6b6f888560a4b2bc131989496a55030"
 PIPE_NAME = "/shared/analysis_pipe"
 FORMAT = "=4s4sf"
-blacklist_path = Path('/shared/blacklist.txt')
-settings_path = Path('/shared/settings.txt')
+BLACKLIST_PATH = Path('/shared/blacklist.txt')
+SETTINGS_PATH = Path('/shared/settings.txt')
 
-mlCaution = 0.9
+ml_confidence_threshold = 0.9
 
 logging.basicConfig(
-    filename = "/shared/ns_service_manager.log",
-    level = logging.INFO,
-    format = "%(asctime)s - %(levelname)s - %(message)s",
-    filemode = "a"
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    handlers=[
+        RotatingFileHandler(
+            "/shared/ns_service_manager.log",
+            maxBytes=10*1024*1024,  # 10MB
+            backupCount=5
+        )
+    ]
 )
 
-def pullBlacklist(centralToken):
+def pull_blacklist(CENTRALTOKEN):
     try:
         url = "https://netsparrow.viktorkirk.com/settings/myblacklist/"
         headers = {
-            "Authorization": str(centralToken),
+            "Authorization": str(CENTRALTOKEN),
             "Content-Type": "application/json"
         }
         logging.info("Blacklist URL set...")
@@ -37,34 +42,34 @@ def pullBlacklist(centralToken):
         logging.info(response.json())
         blacklist_data = response.json()["myblacklists"]
 
-        with open(blacklist_path, 'w', newline='') as file:
+        with open(BLACKLIST_PATH, 'w', newline='') as file:
             for key in blacklist_data:
                 ip = str(key["blacklist_entry__capturedpacket_entry__ip"])
                 file.write(ip + "\n")
-                #url = str(i["blacklist_entry__capturedpacket_entry__url"])
+
         logging.info("Finished writing new blacklist")
 
     except Exception:
         logging.info("Failed to pull blacklist, passing...")
 
-def pullSettings(centralToken):
-    global mlCaution
+def pull_settings(CENTRALTOKEN):
+    global ml_confidence_threshold
     try:
         url = "https://netsparrow.viktorkirk.com/api/settings/get/pi/"
         headers = {
-            "Authorization": str(centralToken),
+            "Authorization": str(CENTRALTOKEN),
         }
         logging.info("Settings URL set...")
 
         response = requests.get(url, headers=headers)
-        logging.info(response.json())
         settings_data = response.json()
+        logging.info(settings_data)
 
         if "mlCaution" in settings_data:
-            mlCaution = settings_data["mlCaution"]
-            logging.info(f"New ML Confidence: {mlCaution}")
+            ml_confidence_threshold = settings_data["mlCaution"]
+            logging.info(f"New ML Confidence Threshold: {ml_confidence_threshold}")
 
-        with open(settings_path, 'w', newline='') as file:
+        with open(SETTINGS_PATH, 'w', newline='') as file:
             for key, value in settings_data.items():
                 file.write(f"{key}={value}\n")
 
@@ -73,11 +78,11 @@ def pullSettings(centralToken):
     except Exception as e:
         logging.info(f"Failed to pull settings with error: {str(e)}, passing...")
 
-def pullBoth(centralToken):
+def pull_all(CENTRALTOKEN):
     while True:
-        pullBlacklist(centralToken)
+        pull_blacklist(CENTRALTOKEN)
         time.sleep(1)
-        pullSettings(centralToken)
+        pull_settings(CENTRALTOKEN)
         logging.info("-" * 50)
         time.sleep(4)
 
@@ -85,6 +90,14 @@ def ip_bytes_to_string(ip_bytes):
     return '.'.join(str(b) for b in ip_bytes)
 
 def read_from_pipe():
+    url = "https://netsparrow.viktorkirk.com/packet_capture/"
+    headers = {
+        "Authorization": str(CENTRALTOKEN),
+        "Content-Type": "application/json"
+    }
+
+    # IP function here
+
     # Wait for the pipe to exist
     while not os.path.exists(PIPE_NAME):
         logging.info("Waiting for pipe to be created...")
@@ -99,22 +112,14 @@ def read_from_pipe():
                 if not raw_data:
                     continue
 
-                url = "https://netsparrow.viktorkirk.com/packet_capture/"
-                headers = {
-                    "Authorization": str(centralToken),
-                    "Content-Type": "application/json"
-                }
-
                 # Unpack the binary data
                 source_ip, dest_ip, confidence = struct.unpack(FORMAT, raw_data)
-
-                # Convert IP addresses to readable format
                 source_ip_str = ip_bytes_to_string(source_ip)
                 dest_ip_str = ip_bytes_to_string(dest_ip)
 
                 logging.info(f"Packet read from pipe: {source_ip_str} -> {dest_ip_str} with confidence {confidence}")
 
-                if float(confidence) >= float(mlCaution):
+                if float(confidence) >= float(ml_confidence_threshold):
                     logging.info("Confidence passed, pushing to blacklist...")
                     if source_ip_str == myIP:
                         data = {
@@ -127,6 +132,7 @@ def read_from_pipe():
                     current_ip = ipaddress.ip_address(data["ip"])
 
                     exempt_ranges = [
+                        ipaddress.ip_network("0.0.0.0"), #
                         ipaddress.ip_network("10.0.0.0/8"), # 10.0.0.0 - 10.255.255.255
                         ipaddress.ip_network("172.16.0.0/12"), # 172.16.0.0 - 172.31.255.255
                         ipaddress.ip_network("192.168.0.0/16"), # 192.168.0.0 - 192.168.255.255
@@ -152,14 +158,13 @@ def read_from_pipe():
 
 if __name__ == "__main__":
     pipe_thread = threading.Thread(target=read_from_pipe, daemon=True)
-    communication_thread = threading.Thread(target=pullBoth, args=(centralToken,), daemon=True)
+    communication_thread = threading.Thread(target=pull_all, args=(CENTRALTOKEN,), daemon=True)
 
     pipe_thread.start()
     communication_thread.start()
 
     try:
-        # Keep the main thread alive
         while True:
-            time.sleep(1)
+            time.sleep(1)       # Keep the main thread alive
     except KeyboardInterrupt:
         print("\nShutting down gracefully...")
