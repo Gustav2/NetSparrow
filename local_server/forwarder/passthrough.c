@@ -299,7 +299,7 @@ void packet_to_pipe(const u_char *packet, int packet_len) {
             strftime(timestamp, sizeof(timestamp), "%Y-%m-%d %H:%M:%S", tm_info);
 
             // Log the error with the timestamp
-            fprintf(log_file, "[%s] Pipe write error: %s\n", timestamp, strerror(errno));
+            // fprintf(log_file, "[%s] Pipe write error: %s\n", timestamp, strerror(errno));
             fflush(log_file);
         }
     }
@@ -342,7 +342,7 @@ void *forward_packets(void *args) {
             // Send the packet to the ML system
             packet_to_pipe(packet, header.len);
 
-            fprintf(log_file, "Package sent to ML system at a percentage of: %i\n", mlPercentage);
+            // fprintf(log_file, "Package sent to ML system at a percentage of: %i\n", mlPercentage);
             fflush(log_file);
         }
 
