@@ -54,8 +54,6 @@ pthread_mutex_t blacklist_mutex = PTHREAD_MUTEX_INITIALIZER;
 time_t last_blacklist_modified_time = 0;
 time_t last_settings_modified_time = 0;
 int mlPercentage = 100;
-int fd = inotify_init();
-int wd = inotify_add_watch(fd, blacklist_file_path, IN_MODIFY | IN_CREATE | IN_DELETE);
 
 char blacklist[BLACKLIST_MAX][IP_STR_LEN];
 int blacklist_count = 0;
@@ -339,12 +337,8 @@ void *monitor_blacklist(void *arg) {
             if (current_mod_time - last_blacklist_modified_time > 5) {
                 fprintf(log_file, "Blacklist file changed, reloading...\n");
                 fflush(log_file);
-                if (load_blacklist_to_hash(blacklist_file_path) == 0) { // Assuming 0 indicates success
-                    last_blacklist_modified_time = current_mod_time;
-                } else {
-                    fprintf(log_file, "Error reloading blacklist file: %s\n", blacklist_file_path);
-                    fflush(log_file);
-                }
+                load_blacklist_to_hash(blacklist_file_path);
+                last_blacklist_modified_time = current_mod_time;
             }
         }
 
@@ -509,6 +503,21 @@ int main(int argc, char *argv[]) {
     char *blacklist_file_path = argv[3];
     settings_file_path = argv[4];
     char errbuf[ERRBUF_SIZE];
+    int fd; // Declare globally without initialization
+    int wd; // Declare globally without initialization
+
+    fd = inotify_init();
+    if (fd < 0) {
+        perror("inotify_init");
+        return NULL; // Or handle the error as needed
+    }
+
+    wd = inotify_add_watch(fd, blacklist_file_path, IN_MODIFY | IN_CREATE | IN_DELETE);
+    if (wd < 0) {
+        perror("inotify_add_watch");
+        close(fd);
+        return NULL; // Or handle the error as needed
+    }
 
     // Open log file
     log_file = fopen("/shared/forwarder_logs/forwarder.log", "a");
