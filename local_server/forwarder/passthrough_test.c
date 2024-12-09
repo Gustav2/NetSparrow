@@ -519,8 +519,14 @@ int main(int argc, char *argv[]) {
 
     char *interface1 = argv[1];
     char *interface2 = argv[2];
-    char* blacklist_file_path = argv[3];
+    blacklist_file_path = argv[3];
     settings_file_path = argv[4];
+
+    // Check if the provided file path exists
+    //if (access(blacklist_file_path, F_OK) == -1) {
+    //    perror("File not found");
+    //    return EXIT_FAILURE;
+    //}
 
     // Initialize pipe and log
     init_pipe_and_log();
