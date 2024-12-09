@@ -198,7 +198,7 @@ time_t get_file_modification_time(const char *filename) {
 void load_blacklist_to_hash(const char *filename) {
     FILE *file = fopen(filename, "r");
     if (!file) {
-        fprintf(log_file, "Error opening blacklist file: %s\n", filename);
+        printf(log_file, "Error opening blacklist file: %s\n", filename);
         fflush(log_file);
         return;
     }
@@ -222,7 +222,7 @@ void load_blacklist_to_hash(const char *filename) {
     blacklist_set = new_blacklist_set;
     pthread_mutex_unlock(&blacklist_mutex);
 
-    fprintf(log_file, "Reloaded blacklist with %d IPs\n", g_hash_table_size(blacklist_set));
+    printf(log_file, "Reloaded blacklist with %d IPs\n", g_hash_table_size(blacklist_set));
     fflush(log_file);
 }
 
@@ -230,7 +230,7 @@ void load_blacklist_to_hash(const char *filename) {
 void load_settings(const char *filename) {
     FILE *file = fopen(filename, "r");
     if (!file) {
-        fprintf(log_file, "Error opening settings file: %s\n", filename);
+        printf(log_file, "Error opening settings file: %s\n", filename);
         fflush(log_file);
         return;
     }
@@ -246,10 +246,10 @@ void load_settings(const char *filename) {
             if (strcmp(key, "mlPercentage") == 0) {
                 if (value >= 0 && value <= 100) {
                     mlPercentage = value;
-                    fprintf(log_file, "Settings: mlPercentage updated to: %d\n", value);
+                    printf(log_file, "Settings: mlPercentage updated to: %d\n", value);
                 }
                 else {
-                    fprintf(log_file, "Settings: Invalid mlPercentage %d\n", value);
+                    printf(log_file, "Settings: Invalid mlPercentage %d\n", value);
                 }
             }
             // more settings can be added here following the above example
@@ -377,7 +377,7 @@ void packet_to_pipe(const u_char *packet, int packet_len) {
             strftime(timestamp, sizeof(timestamp), "%Y-%m-%d %H:%M:%S", tm_info);
 
             // Log the error with the timestamp
-            // fprintf(log_file, "[%s] Pipe write error: %s\n", timestamp, strerror(errno));
+            // printf(log_file, "[%s] Pipe write error: %s\n", timestamp, strerror(errno));
             fflush(log_file);
         }
     }
@@ -409,7 +409,7 @@ void *forward_packets(void *args) {
             if (ip_hdr->ip_p == IPPROTO_TCP) {
                 send_tcp_reset(packet, header.len); // Terminate original connection
             }
-            fprintf(log_file, "Blocked packet: SRC=%s DST=%s\n", src_ip, dst_ip);
+            printf(log_file, "Blocked packet: SRC=%s DST=%s\n", src_ip, dst_ip);
             fflush(log_file);
             continue; // Skip forwarding
         }
@@ -420,13 +420,13 @@ void *forward_packets(void *args) {
             // Send the packet to the ML system
             packet_to_pipe(packet, header.len);
 
-            // fprintf(log_file, "Package sent to ML system at a percentage of: %i\n", mlPercentage);
+            // printf(log_file, "Package sent to ML system at a percentage of: %i\n", mlPercentage);
             fflush(log_file);
         }
 
         // Forward the packet
         if (pcap_sendpacket(dest_handle, packet, header.len) != 0) {
-            fprintf(log_file, "Error sending packet: %s\n", pcap_geterr(dest_handle));
+            printf(log_file, "Error sending packet: %s\n", pcap_geterr(dest_handle));
             fflush(log_file);
         }
     }
@@ -439,14 +439,14 @@ int get_interface_mtu(const char *interface_name) {
     struct ifreq ifr;
     int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
     if (sockfd == -1) {
-        fprintf(log_file, "Socket error\n");
+        printf(log_file, "Socket error\n");
         fflush(log_file);
         return -1;
     }
 
     strncpy(ifr.ifr_name, interface_name, IFNAMSIZ - 1);
     if (ioctl(sockfd, SIOCGIFMTU, &ifr) == -1) {
-        fprintf(log_file, "IOCTL error\n");
+        printf(log_file, "IOCTL error\n");
         fflush(log_file);
         close(sockfd);
         return -1;
@@ -458,7 +458,7 @@ int get_interface_mtu(const char *interface_name) {
 
 // Optimize network interface settings
 void optimize_interface(const char *interface_name) {
-    fprintf(log_file, "Optimizing interface %s\n", interface_name);
+    printf(log_file, "Optimizing interface %s\n", interface_name);
     fflush(log_file);
     char command[256];
     snprintf(command, sizeof(command), "sudo ethtool -K %s gro off", interface_name);
@@ -487,10 +487,10 @@ void init_pipe_and_log() {
     // Create the named pipe and handle potential errors
     if (mkfifo(PIPE_PATH, 0666) == -1) {
         if (errno != EEXIST) {
-            fprintf(stderr, "Error creating named pipe '%s': %s\n", PIPE_PATH, strerror(errno));
+            printf(stderr, "Error creating named pipe '%s': %s\n", PIPE_PATH, strerror(errno));
             exit(EXIT_FAILURE);
         } else {
-            fprintf(log_file, "Named pipe '%s' already exists, proceeding...\n", PIPE_PATH);
+            printf(log_file, "Named pipe '%s' already exists, proceeding...\n", PIPE_PATH);
             fflush(log_file);
         }
     }
@@ -503,7 +503,7 @@ void init_pipe_and_log() {
     // Open the pipe for writing in non-blocking mode
     pipe_fd = open(PIPE_PATH, O_WRONLY | O_NONBLOCK);
     if (pipe_fd == -1) {
-        fprintf(stderr, "Error opening named pipe '%s': %s\n", PIPE_PATH, strerror(errno));
+        printf(stderr, "Error opening named pipe '%s': %s\n", PIPE_PATH, strerror(errno));
         fclose(log_file);  // Clean up
         exit(EXIT_FAILURE);
     }
@@ -513,7 +513,7 @@ void init_pipe_and_log() {
 // Main Function
 int main(int argc, char *argv[]) {
     if (argc != 5) {
-        fprintf(stderr, "Usage: %s <interface1> <interface2> <blacklist_file> <settings_file>\n", argv[0]);
+        printf(stderr, "Usage: %s <interface1> <interface2> <blacklist_file> <settings_file>\n", argv[0]);
         exit(EXIT_FAILURE);
     }
 
@@ -551,7 +551,7 @@ int main(int argc, char *argv[]) {
     int mtu1 = get_interface_mtu(interface1);
     int mtu2 = get_interface_mtu(interface2);
     if (mtu1 == -1 || mtu2 == -1) {
-        fprintf(stderr, "Error getting MTU for interfaces\n");
+        printf(stderr, "Error getting MTU for interfaces\n");
         exit(EXIT_FAILURE);
     }
 
@@ -559,7 +559,7 @@ int main(int argc, char *argv[]) {
     pcap_t *handle1 = pcap_create(interface1, errbuf);
     pcap_t *handle2 = pcap_create(interface2, errbuf);
     if (!handle1 || !handle2) {
-        fprintf(stderr, "Error creating capture handles: %s\n", errbuf);
+        printf(stderr, "Error creating capture handles: %s\n", errbuf);
         exit(EXIT_FAILURE);
     }
 
@@ -572,12 +572,12 @@ int main(int argc, char *argv[]) {
         pcap_set_buffer_size(handles[i], 1024 * 1024 * 64); 
         pcap_set_immediate_mode(handles[i], 1);
         if (pcap_activate(handles[i]) != 0) {
-            fprintf(stderr, "Error activating capture: %s\n", pcap_geterr(handles[i]));
+            printf(stderr, "Error activating capture: %s\n", pcap_geterr(handles[i]));
             exit(EXIT_FAILURE);
         }
     }
 
-    fprintf(log_file, "Forwarding packets between %s and %s...\n", interface1, interface2);
+    printf(log_file, "Forwarding packets between %s and %s...\n", interface1, interface2);
     fflush(log_file);
 
     // Create threads for packet forwarding and blacklist monitoring
