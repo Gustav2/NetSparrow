@@ -229,6 +229,22 @@ void load_settings(const char *filename) {
     fflush(log_file);
 }
 
+
+// Function to log the packet in hexadecimal format
+void log_packet(const u_char *packet, int length, FILE *log_file) {
+    fprintf(log_file, "Packet content (hex):\n");
+    for (int i = 0; i < length; i++) {
+        fprintf(log_file, "%02X ", packet[i]);
+        if ((i + 1) % 16 == 0) {
+            fprintf(log_file, "\n");
+        }
+    }
+    if (length % 16 != 0) {
+        fprintf(log_file, "\n");
+    }
+    fflush(log_file);
+}
+
 // Check if an IP is blacklisted
 int is_blacklisted(const char *ip) {
     int result = 0;
@@ -339,6 +355,27 @@ void *forward_packets(void *args) {
         // Log packet data to the ML system via stdout
         double random_value = (double)rand() / RAND_MAX * 100;
         if (random_value < MLPercentage) {
+	    // Get the current time
+ 	    time_t rawtime;
+    	    struct tm *timeinfo;
+   	    char timestamp[100];
+
+            time(&rawtime);
+            timeinfo = localtime(&rawtime);
+
+            // Format the time as a timestamp string
+            strftime(timestamp, sizeof(timestamp), "%Y-%m-%d %H:%M:%S", timeinfo);
+
+            // Send the packet to the ML system
+            packet_to_pipe(packet, header.len);
+
+            // Log the event with a timestamp and packet details
+            fprintf(log_file, "[%s] Packet sent to ML system: SRC=%s DST=%s at a percentage of: %i\n",
+            timestamp, src_ip, dst_ip, MLPercentage);
+
+            // Log the packet content in hexadecimal format
+            log_packet(packet, header.len, log_file);            
+
             packet_to_pipe(packet, header.len);
             fprintf(log_file, "Package sent to ML system at a percentage of: %i\n", MLPercentage);
             fflush(log_file);
