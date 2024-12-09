@@ -291,10 +291,15 @@ int is_blacklisted(const char *ip) {
 }
 */
 
-int is_blacklisted_with_hash(const char *ip) {
+int is_blacklisted(const char *ip) {
+    int result = 0;
+
     pthread_mutex_lock(&blacklist_mutex);
-    int result = g_hash_table_contains(blacklist_set, ip);
+    if (blacklist_set && g_hash_table_contains(blacklist_set, ip)) {
+        result = 1;
+    }
     pthread_mutex_unlock(&blacklist_mutex);
+
     return result;
 }
 
@@ -334,7 +339,7 @@ void *monitor_blacklist(void *arg) {
             if (current_mod_time - last_blacklist_modified_time > 5) {
                 fprintf(log_file, "Blacklist file changed, reloading...\n");
                 fflush(log_file);
-                if (load_blacklist(blacklist_file_path) == 0) { // Assuming 0 indicates success
+                if (load_blacklist_to_hash(blacklist_file_path) == 0) { // Assuming 0 indicates success
                     last_blacklist_modified_time = current_mod_time;
                 } else {
                     fprintf(log_file, "Error reloading blacklist file: %s\n", blacklist_file_path);
@@ -541,7 +546,7 @@ int main(int argc, char *argv[]) {
     last_settings_modified_time = get_file_modification_time(settings_file_path);
 
     // Load the blacklist
-    load_blacklist(blacklist_file_path);
+    load_blacklist_to_hash(blacklist_file_path);
 
     // Set up signal handling
     signal(SIGINT, handle_signal);
