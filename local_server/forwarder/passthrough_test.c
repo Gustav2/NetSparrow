@@ -24,7 +24,6 @@
 #include <glib.h> // For hash table
 #include <arpa/inet.h> // For inet_pton
 
-
 #define SNAP_LEN 1518
 #define ERRBUF_SIZE 256
 #define BLACKLIST_MAX 2048
@@ -172,42 +171,7 @@ time_t get_file_modification_time(const char *filename) {
     return 0;
 }
 
-// Load blacklist file into memory
-/*
-void load_blacklist(const char *filename) {
-    FILE *file = fopen(filename, "r");
-    if (!file) {
-        fprintf(log_file, "Error opening blacklist file: %s\n", filename);
-        fflush(log_file);
-        return;
-    }
-
-    // Create temporary array for new IPs
-    char temp_blacklist[BLACKLIST_MAX][IP_STR_LEN];
-    int temp_count = 0;
-
-    char ip[IP_STR_LEN];
-    while (fgets(ip, sizeof(ip), file) && temp_count < BLACKLIST_MAX) {
-        ip[strcspn(ip, "\n")] = '\0'; // Remove trailing newline
-        strncpy(temp_blacklist[temp_count++], ip, IP_STR_LEN);
-    }
-
-    fclose(file);
-
-    // Lock mutex before updating the blacklist
-    pthread_mutex_lock(&blacklist_mutex);
-
-    // Update the blacklist
-    blacklist_count = temp_count;
-    memcpy(blacklist, temp_blacklist, sizeof(temp_blacklist));
-
-    pthread_mutex_unlock(&blacklist_mutex);
-
-    fprintf(log_file, "Reloaded blacklist with %d IPs\n", blacklist_count);
-    fflush(log_file);
-}
-*/
-
+// Load blacklist file into memory using hash table
 void load_blacklist_to_hash(const char *filename) {
     FILE *file = fopen(filename, "r");
     if (!file) {
@@ -273,23 +237,6 @@ void load_settings(const char *filename) {
 }
 
 // Check if an IP is blacklisted
-/*
-int is_blacklisted(const char *ip) {
-    int result = 0;
-
-    pthread_mutex_lock(&blacklist_mutex);
-    for (int i = 0; i < blacklist_count; i++) {
-        if (strcmp(ip, blacklist[i]) == 0) {
-            result = 1;
-            break;
-        }
-    }
-    pthread_mutex_unlock(&blacklist_mutex);
-
-    return result;
-}
-*/
-
 int is_blacklisted(const char *ip) {
     int result = 0;
 
@@ -300,31 +247,7 @@ int is_blacklisted(const char *ip) {
     pthread_mutex_unlock(&blacklist_mutex);
 
     return result;
-}
-
-/*
-void *monitor_blacklist(void *arg) {
-    while (keep_running) {
-        time_t current_mod_time = get_file_modification_time(blacklist_file_path);
-        if (current_mod_time > last_blacklist_modified_time) {
-            fprintf(log_file, "Blacklist file changed, reloading...\n");
-            fflush(log_file);
-            load_blacklist(blacklist_file_path);
-            last_blacklist_modified_time = current_mod_time;
-        }
-
-        time_t current_settings_time = get_file_modification_time(settings_file_path);
-        if (current_settings_time > last_settings_modified_time) {
-            fprintf(log_file, "Settings file changed, reloading...\n");
-            fflush(log_file);
-            load_settings(settings_file_path);
-            last_settings_modified_time = current_settings_time;
-        }
-        sleep(1); // Check every second
-    }
-    return NULL;
-}
-*/  
+} 
 
 void *monitor_blacklist(void *arg) {
     while (keep_running) {
