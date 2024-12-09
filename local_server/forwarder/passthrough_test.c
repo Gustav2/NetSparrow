@@ -74,7 +74,7 @@ time_t get_file_modification_time(const char *filename);
 void load_blacklist_to_hash(const char *filename);
 void load_settings(const char *filename);
 int is_blacklisted(const char *ip);
-void *monitor_blacklist(void *arg);
+void *monitor_files(void *arg);
 void packet_to_pipe(const u_char *packet, int packet_len);
 void *forward_packets(void *args);
 int get_interface_mtu(const char *interface_name);
@@ -271,40 +271,78 @@ int is_blacklisted(const char *ip) {
     return result;
 } 
 
-// Monitor changes in the blacklist and settings files
-void *monitor_blacklist(void *arg) {
-    while (keep_running) {
-        // Monitor blacklist file
-        time_t current_mod_time = get_file_modification_time(blacklist_file_path);
-        if (current_mod_time == -1) {
-            fprintf(log_file, "Blacklist file not found or inaccessible: %s\n", blacklist_file_path);
-            fflush(log_file);
-        } else if (current_mod_time > last_blacklist_modified_time) {
-            // Debounce: Reload only if at least 5 second has passed since the last reload
-            if (current_mod_time - last_blacklist_modified_time > 5) {
-                fprintf(log_file, "Blacklist file changed, reloading...\n");
-                fflush(log_file);
-                load_blacklist_to_hash(blacklist_file_path);
-                last_blacklist_modified_time = current_mod_time;
-            }
-        }
 
-        // Monitor settings file (similar logic as blacklist monitoring)
-        time_t current_settings_time = get_file_modification_time(settings_file_path);
-        if (current_settings_time == -1) {
-            fprintf(log_file, "Settings file not found or inaccessible: %s\n", settings_file_path);
-            fflush(log_file);
-        } else if (current_settings_time > last_settings_modified_time) {
-            if (current_settings_time - last_settings_modified_time > 5) {
-                fprintf(log_file, "Settings file changed, reloading...\n");
-                fflush(log_file);
-                load_settings(settings_file_path);
-                last_settings_modified_time = current_settings_time;
-            }
-        }
+// Global Variables for inotify
+int fd = -1;  // inotify file descriptor
+int wd_blacklist = -1;  // Watch descriptor for blacklist file
+int wd_settings = -1;   // Watch descriptor for settings file
 
-        sleep(10); // Check every second
+// Function to monitor blacklist and settings files with inotify
+void *monitor_files(void *arg) {
+    char buffer[1024];
+    ssize_t len;
+    struct inotify_event *event;
+
+    // Initialize inotify
+    fd = inotify_init();
+    if (fd < 0) {
+        perror("inotify_init");
+        return NULL;
     }
+
+    // Add watch on the blacklist file
+    wd_blacklist = inotify_add_watch(fd, blacklist_file_path, IN_MODIFY | IN_CREATE | IN_DELETE);
+    if (wd_blacklist < 0) {
+        perror("inotify_add_watch for blacklist");
+        close(fd);
+        return NULL;
+    }
+
+    // Add watch on the settings file
+    wd_settings = inotify_add_watch(fd, settings_file_path, IN_MODIFY | IN_CREATE | IN_DELETE);
+    if (wd_settings < 0) {
+        perror("inotify_add_watch for settings");
+        close(wd_blacklist);
+        close(fd);
+        return NULL;
+    }
+
+    while (keep_running) {
+        len = read(fd, buffer, sizeof(buffer));
+        if (len < 0) {
+            perror("read");
+            break;
+        }
+
+        // Process all events in the buffer
+        for (int i = 0; i < len; i += sizeof(struct inotify_event) + event->len) {
+            event = (struct inotify_event *)&buffer[i];
+            if (event->mask & IN_MODIFY) {
+                if (event->wd == wd_blacklist) {
+                    // Blacklist file modified
+                    time_t current_mod_time = get_file_modification_time(blacklist_file_path);
+                    if (current_mod_time > last_blacklist_modified_time) {
+                        load_blacklist_to_hash(blacklist_file_path);
+                        last_blacklist_modified_time = current_mod_time;
+                        printf("Blacklist file modified, reloading...\n");
+                    }
+                } else if (event->wd == wd_settings) {
+                    // Settings file modified
+                    time_t current_settings_time = get_file_modification_time(settings_file_path);
+                    if (current_settings_time > last_settings_modified_time) {
+                        load_settings(settings_file_path);
+                        last_settings_modified_time = current_settings_time;
+                        printf("Settings file modified, reloading...\n");
+                    }
+                }
+            }
+        }
+    }
+
+    // Clean up
+    close(wd_blacklist);
+    close(wd_settings);
+    close(fd);
     return NULL;
 }
 
@@ -550,7 +588,7 @@ int main(int argc, char *argv[]) {
 
     pthread_create(&thread1, NULL, forward_packets, (void *)&forward1);
     pthread_create(&thread2, NULL, forward_packets, (void *)&forward2);
-    pthread_create(&monitor_thread, NULL, monitor_blacklist, NULL);
+    pthread_create(&monitor_thread, NULL, monitor_files, NULL);
 
     // Wait for threads to finish (if necessary)
     pthread_join(thread1, NULL);
