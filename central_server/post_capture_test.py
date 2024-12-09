@@ -4,7 +4,7 @@ import requests
 url = "https://netsparrow.viktorkirk.com/packet_capture/"
 
 data = {
-    "ip": "64.226.100.239",
+    "ip": "130.225.37.168",
     "url": "None"
 }
 
@@ -16,4 +16,4 @@ headers = {
 response = requests.post(url, headers=headers, json=data) 
 
 print("Status Code:", response.status_code)
-print("Response JSON:")
+print("Response JSON:", response.json())
