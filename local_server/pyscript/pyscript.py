@@ -17,13 +17,18 @@ SETTINGS_PATH = Path('/shared/settings.txt')
 
 ml_confidence_threshold = 0.9
 
+# Ensure the log directory exists
+log_dir = "/shared/service_manager_logs"
+os.makedirs(log_dir, exist_ok=True)
+
+# Set up logging
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s",
     handlers=[
         RotatingFileHandler(
-            "/shared/service_manager_logs/ns_service_manager.log",
-            maxBytes=10*1024*1024,  # 10MB
+            os.path.join(log_dir, "ns_service_manager.log"),
+            maxBytes=10 * 1024 * 1024,  # 10MB
             backupCount=5
         )
     ]

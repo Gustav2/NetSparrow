@@ -24,6 +24,7 @@
 #include <glib.h> // For hash table
 #include <arpa/inet.h> // For inet_pton
 
+
 #define SNAP_LEN 1518
 #define ERRBUF_SIZE 256
 #define BLACKLIST_MAX 2048
@@ -348,7 +349,7 @@ void *monitor_blacklist(void *arg) {
             fprintf(log_file, "Settings file not found or inaccessible: %s\n", settings_file_path);
             fflush(log_file);
         } else if (current_settings_time > last_settings_modified_time) {
-            if (current_settings_time - last_settings_modified_time > 1) {
+            if (current_settings_time - last_settings_modified_time > 5) {
                 fprintf(log_file, "Settings file changed, reloading...\n");
                 fflush(log_file);
                 load_settings(settings_file_path);
@@ -513,6 +514,12 @@ int main(int argc, char *argv[]) {
         perror("inotify_add_watch");
         close(fd);
         return NULL; // Or handle the error as needed
+    }
+
+    // Create log directory if it doesn't exist
+    if (mkdir("/shared/forwarder_logs", 0755) == -1 && errno != EEXIST) {
+        perror("Error creating log directory");
+        exit(EXIT_FAILURE);
     }
 
     // Open log file
