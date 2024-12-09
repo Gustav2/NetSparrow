@@ -519,7 +519,7 @@ int main(int argc, char *argv[]) {
 
     char *interface1 = argv[1];
     char *interface2 = argv[2];
-    blacklist_file_path = argv[3];
+    char* blacklist_file_path = argv[3];
     settings_file_path = argv[4];
 
     // Initialize pipe and log
