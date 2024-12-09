@@ -81,9 +81,10 @@ def pull_settings(CENTRALTOKEN):
 def pull_all(CENTRALTOKEN):
     while True:
         pull_blacklist(CENTRALTOKEN)
+        logging.info("-" * 50)
         time.sleep(1)
         pull_settings(CENTRALTOKEN)
-        logging.info("-" * 50)
+        logging.info("=" * 50)
         time.sleep(4)
 
 def ip_bytes_to_string(ip_bytes):
@@ -95,8 +96,6 @@ def read_from_pipe():
         "Authorization": str(CENTRALTOKEN),
         "Content-Type": "application/json"
     }
-
-    # IP function here
 
     # Wait for the pipe to exist
     while not os.path.exists(PIPE_NAME):
@@ -143,8 +142,7 @@ def read_from_pipe():
                         continue
 
                     else:
-                        logging.info(f"Pushing to blacklist: {current_ip}")
-                        logging.info(f"with confidence: {confidence}")
+                        logging.info(f"Pushing to blacklist: {current_ip} with confidence: {confidence}")
                         logging.info("-" * 50)
                         try:
                             response = requests.post(url, headers=headers, json=data)
