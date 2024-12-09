@@ -479,9 +479,8 @@ int main(int argc, char *argv[]) {
     // Initialize pipe and log
     init_pipe_and_log();
 
-
-    // not sure if this is needed or used
-    //char errbuf[ERRBUF_SIZE];
+    // Buffer for error messages
+    char errbuf[ERRBUF_SIZE];
 
     // Get initial modification time
     last_blacklist_modified_time = get_file_modification_time(blacklist_file_path);
