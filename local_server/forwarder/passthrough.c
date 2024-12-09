@@ -333,7 +333,7 @@ void *forward_packets(void *args) {
             }
             fprintf(log_file, "Blocked packet: SRC=%s DST=%s\n", src_ip, dst_ip);
             fflush(log_file);
-            //continue; // Skip forwarding
+            continue; // Skip forwarding
         }
 
         // Log packet data to the ML system via stdout
