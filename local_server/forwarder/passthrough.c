@@ -29,6 +29,15 @@
 #define PIPE_PATH "/shared/packet_log_pipe" // Define the pipe path
 #define BUFFER_SIZE 256
 
+typedef struct __attribute__((packed)) {
+    uint32_t timestamp;      // Network byte order
+    uint8_t src_ip[4];      // Raw IP bytes
+    uint8_t dst_ip[4];      // Raw IP bytes
+    uint16_t packet_size;    // Network byte order
+    uint8_t protocol;       // Protocol number
+    uint8_t data[1500];     // Raw packet data
+} binary_packet_t;
+
 typedef struct {
     pcap_t *source_handle;
     pcap_t *dest_handle;
@@ -36,8 +45,11 @@ typedef struct {
 } forwarder_args_t;
 
 char *blacklist_file_path;
+char *settings_file_path;
 pthread_mutex_t blacklist_mutex = PTHREAD_MUTEX_INITIALIZER;
-time_t last_modified_time = 0;
+time_t last_blacklist_modified_time = 0;
+time_t last_settings_modified_time = 0;
+int MLPercentage = 100;
 
 char blacklist[BLACKLIST_MAX][IP_STR_LEN];
 int blacklist_count = 0;
@@ -45,7 +57,6 @@ volatile int keep_running = 1;
 
 FILE *log_file; // Global log file pointer
 int pipe_fd = -1; // Named pipe file descriptor
-
 
 // Function to calculate checksum
 unsigned short checksum(void *b, int len) {
@@ -185,6 +196,55 @@ void load_blacklist(const char *filename) {
     fflush(log_file);
 }
 
+// for loading settings
+void load_settings(const char *filename) {
+    FILE *file = fopen(filename, "r");
+    if (!file) {
+        fprintf(log_file, "Error opening settings file: %s\n", filename);
+        fflush(log_file);
+        return;
+    }
+
+    char line[256];
+    char key[256];
+    int value;
+
+    while (fgets(line, sizeof(line), file)) {
+        if (sscanf(line, "%[^=]=%d", key, &value) == 2) {
+            key[strcspn(key, " \t\n")] = 0;
+
+            if (strcmp(key, "MLPercentage") == 0) {
+                if (value >= 0 && value <= 100) {
+                    MLPercentage = value;
+                    fprintf(log_file, "Settings: MLPercentage updated to: %d\n", value);
+                }
+                else {
+                    fprintf(log_file, "Settings: Invalid MLPercentage %d\n", value);
+                }
+            }
+            // more settings can be added here following the above example
+        }
+    }
+    fclose(file);
+    fflush(log_file);
+}
+
+
+// Function to log the packet in hexadecimal format
+void log_packet(const u_char *packet, int length, FILE *log_file) {
+    fprintf(log_file, "Packet content (hex):\n");
+    for (int i = 0; i < length; i++) {
+        fprintf(log_file, "%02X ", packet[i]);
+        if ((i + 1) % 16 == 0) {
+            fprintf(log_file, "\n");
+        }
+    }
+    if (length % 16 != 0) {
+        fprintf(log_file, "\n");
+    }
+    fflush(log_file);
+}
+
 // Check if an IP is blacklisted
 int is_blacklisted(const char *ip) {
     int result = 0;
@@ -204,47 +264,62 @@ int is_blacklisted(const char *ip) {
 void *monitor_blacklist(void *arg) {
     while (keep_running) {
         time_t current_mod_time = get_file_modification_time(blacklist_file_path);
-
-        if (current_mod_time > last_modified_time) {
+        if (current_mod_time > last_blacklist_modified_time) {
             fprintf(log_file, "Blacklist file changed, reloading...\n");
             fflush(log_file);
             load_blacklist(blacklist_file_path);
-            last_modified_time = current_mod_time;
+            last_blacklist_modified_time = current_mod_time;
         }
 
+        time_t current_settings_time = get_file_modification_time(settings_file_path);
+        if (current_settings_time > last_settings_modified_time) {
+            fprintf(log_file, "Settings file changed, reloading...\n");
+            fflush(log_file);
+            load_settings(settings_file_path);
+            last_settings_modified_time = current_settings_time;
+        }
         sleep(1); // Check every second
     }
     return NULL;
 }
 
-// Log packet details to the named pipe
+// Add function to send packet data through pipe
 void packet_to_pipe(const u_char *packet, int packet_len) {
     struct ip *ip_hdr = (struct ip *)(packet + 14); // Skip Ethernet header
+    binary_packet_t binary_packet;
 
-    char src_ip[IP_STR_LEN], dst_ip[IP_STR_LEN];
-    inet_ntop(AF_INET, &(ip_hdr->ip_src), src_ip, IP_STR_LEN);
-    inet_ntop(AF_INET, &(ip_hdr->ip_dst), dst_ip, IP_STR_LEN);
+    // Zero out the structure
+    memset(&binary_packet, 0, sizeof(binary_packet_t));
 
-    const char *protocol = (ip_hdr->ip_p == IPPROTO_TCP) ? "TCP" :
-                           (ip_hdr->ip_p == IPPROTO_UDP) ? "UDP" :
-                           (ip_hdr->ip_p == IPPROTO_ICMP) ? "ICMP" : "Other";
+    // Fill structure with network byte order
+    binary_packet.timestamp = htonl((uint32_t)time(NULL));
+    memcpy(binary_packet.src_ip, &(ip_hdr->ip_src), 4);
+    memcpy(binary_packet.dst_ip, &(ip_hdr->ip_dst), 4);
+    binary_packet.packet_size = htons((uint16_t)packet_len);
+    binary_packet.protocol = ip_hdr->ip_p;
 
-    char data[256];
-    int bytes_written = snprintf(data, sizeof(data),
-                                 "Source IP: %s, Destination IP: %s, Protocol: %s, Packet Length: %d\n",
-                                 src_ip, dst_ip, protocol, packet_len);
+    // Copy packet data (limited to 1500 bytes)
+    size_t data_len = packet_len > sizeof(binary_packet.data) ?
+                      sizeof(binary_packet.data) : packet_len;
+    memcpy(binary_packet.data, packet, data_len);
 
+    // Write to pipe with error handling
     if (pipe_fd != -1) {
-        if (write(pipe_fd, data, bytes_written) == -1) {
-            if (errno != EAGAIN) {
-                fprintf(log_file, "Error writing to pipe: %s\n", strerror(errno));
-                fflush(log_file);
-            }
+        ssize_t written = write(pipe_fd, &binary_packet, sizeof(binary_packet_t));
+        if (written != sizeof(binary_packet_t)) {
+            char timestamp[64];
+            time_t now = time(NULL);
+            struct tm *tm_info = localtime(&now);
+
+            // Format the timestamp as YYYY-MM-DD HH:MM:SS
+            strftime(timestamp, sizeof(timestamp), "%Y-%m-%d %H:%M:%S", tm_info);
+
+            // Log the error with the timestamp
+            fprintf(log_file, "[%s] Pipe write error: %s\n", timestamp, strerror(errno));
+            fflush(log_file);
         }
     }
 }
-
-
 
 // Forward packets between interfaces with blacklist filtering
 void *forward_packets(void *args) {
@@ -278,7 +353,33 @@ void *forward_packets(void *args) {
         }
 
         // Log packet data to the ML system via stdout
-        packet_to_pipe(packet, header.len);
+        double random_value = (double)rand() / RAND_MAX * 100;
+        if (random_value < MLPercentage) {
+	    // Get the current time
+ 	    time_t rawtime;
+    	    struct tm *timeinfo;
+   	    char timestamp[100];
+
+            time(&rawtime);
+            timeinfo = localtime(&rawtime);
+
+            // Format the time as a timestamp string
+            strftime(timestamp, sizeof(timestamp), "%Y-%m-%d %H:%M:%S", timeinfo);
+
+            // Send the packet to the ML system
+            packet_to_pipe(packet, header.len);
+
+            // Log the event with a timestamp and packet details
+            fprintf(log_file, "[%s] Packet sent to ML system: SRC=%s DST=%s at a percentage of: %i\n",
+            timestamp, src_ip, dst_ip, MLPercentage);
+
+            // Log the packet content in hexadecimal format
+            log_packet(packet, header.len, log_file);            
+
+            packet_to_pipe(packet, header.len);
+            fprintf(log_file, "Package sent to ML system at a percentage of: %i\n", MLPercentage);
+            fflush(log_file);
+        }
 
         // Forward the packet
         if (pcap_sendpacket(dest_handle, packet, header.len) != 0) {
@@ -326,18 +427,17 @@ void optimize_interface(const char *interface_name) {
 }
 
 int main(int argc, char *argv[]) {
-    if (argc != 4) {
-        fprintf(stderr, "Usage: %s <interface1> <interface2> <blacklist_file>\n", argv[0]);
+    if (argc != 5) {
+        fprintf(stderr, "Usage: %s <interface1> <interface2> <blacklist_file> <settings_file>\n", argv[0]);
         exit(EXIT_FAILURE);
     }
     printf("Test");
     fprintf(stderr, "hej");
     char *interface1 = argv[1];
     char *interface2 = argv[2];
-    char *blacklist_file = argv[3];
+    char *blacklist_file_path = argv[3];
+    settings_file_path = argv[4];
     char errbuf[ERRBUF_SIZE];
-
-    blacklist_file_path = argv[3];
 
     // Open log file
     log_file = fopen("forwarder.log", "a");
@@ -346,27 +446,33 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
-      // Create the named pipe
-    if (mkfifo(PIPE_PATH, 0666) == -1 && errno != EEXIST) {
-        perror("Error creating pipe");
-        return 1;
+     // Create the named pipe and handle potential errors
+    if (mkfifo(PIPE_PATH, 0666) == -1) {
+        if (errno != EEXIST) {
+            fprintf(stderr, "Error creating named pipe '%s': %s\n", PIPE_PATH, strerror(errno));
+            exit(EXIT_FAILURE);
+        } else {
+            fprintf(log_file, "Named pipe '%s' already exists, proceeding...\n", PIPE_PATH);
+            fflush(log_file);
+        }
     }
-
     FILE *pipe_file = fopen(PIPE_PATH, "w");
     if (pipe_file == NULL) {
         perror("Error opening pipe");
         return 1;
     }
 
-    // Open the pipe for writing
+    // Open the pipe for writing in non-blocking mode
     pipe_fd = open(PIPE_PATH, O_WRONLY | O_NONBLOCK);
     if (pipe_fd == -1) {
-        fprintf(stderr, "Error opening pipe: %s\n", strerror(errno));
+        fprintf(stderr, "Error opening named pipe '%s': %s\n", PIPE_PATH, strerror(errno));
+        fclose(log_file);  // Clean up
         exit(EXIT_FAILURE);
     }
 
     // Get initial modification time
-    last_modified_time = get_file_modification_time(blacklist_file_path);
+    last_blacklist_modified_time = get_file_modification_time(blacklist_file_path);
+    last_settings_modified_time = get_file_modification_time(settings_file_path);
 
     // Load the blacklist
     load_blacklist(blacklist_file_path);
