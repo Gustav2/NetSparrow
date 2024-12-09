@@ -59,15 +59,15 @@ def read_packet(pipe_fd):
         unpacked = struct.unpack(fmt, raw_data)
 
         hex_data = ' '.join(f"{b:02x}" for b in raw_data)
-        print(f"""
-            Received packet: {hex_data}
-            Src IP: {unpacked[1]}
-            Dest IP: {unpacked[2]}
-            Packet size: {unpacked[3]}
-            Protocol: {unpacked[4]}
-            Timestamp: {datetime.fromtimestamp(unpacked[0])}
-            Timestamp (raw): {unpacked[0]}
-            """)
+        #print(f"""
+        #    Received packet: {hex_data}
+        #    Src IP: {unpacked[1]}
+        #    Dest IP: {unpacked[2]}
+        #    Packet size: {unpacked[3]}
+        #    Protocol: {unpacked[4]}
+        #    Timestamp: {datetime.fromtimestamp(unpacked[0])}
+        #    Timestamp (raw): {unpacked[0]}
+        #    """)
 
 
 
@@ -103,7 +103,7 @@ def connect_to_pipe(pipe_name, mode, retries=3):
             if not wait_for_pipe(pipe_name):
                 print(f"Timeout waiting for {pipe_name}")
                 return None
-            
+
             fd = os.open(pipe_name, mode)
             return fd
         except Exception as e:
@@ -145,7 +145,7 @@ def packet_to_dataframe(packets):
     for packet in packets:
         src_ip = '.'.join(str(b) for b in packet.source_ip)
         dst_ip = '.'.join(str(b) for b in packet.dest_ip)
-        
+
         row = [
             packet.timestamp,
             None,
@@ -278,7 +278,7 @@ def analyze_packets_stream(model):
                 if packet is None:
                     empty_reads += 1
                     current_time = time.time()
-                    
+
                     if empty_reads >= MAX_EMPTY_READS and (current_time - last_packet_time) > CONNECTION_TIMEOUT:
                         print("\nNo packets received for too long. Reconnecting...")
                         break
@@ -288,7 +288,7 @@ def analyze_packets_stream(model):
                             packets_processed += len(packet_buffer)
                             print(f"\rProcessed {packets_processed} packets", end="", flush=True)
                         packet_buffer.clear()
-                    
+
                     time.sleep(ERROR_CHECK_INTERVAL)
                     continue
 
