@@ -430,11 +430,11 @@ void optimize_interface(const char *interface_name) {
     fprintf(log_file, "Optimizing interface %s\n", interface_name);
     fflush(log_file);
     char command[256];
-    snfprintf(command, sizeof(command), "sudo ethtool -K %s gro off", interface_name);
+    snprintf(command, sizeof(command), "sudo ethtool -K %s gro off", interface_name);
     system(command);
-    snfprintf(command, sizeof(command), "sudo ethtool -K %s lro off", interface_name);
+    snprintf(command, sizeof(command), "sudo ethtool -K %s lro off", interface_name);
     system(command);
-    snfprintf(command, sizeof(command), "sudo ethtool -C %s rx-usecs 0", interface_name);
+    snprintf(command, sizeof(command), "sudo ethtool -C %s rx-usecs 0", interface_name);
     system(command);
 }
 
