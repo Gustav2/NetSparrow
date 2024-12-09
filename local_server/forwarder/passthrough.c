@@ -49,7 +49,7 @@ char *settings_file_path;
 pthread_mutex_t blacklist_mutex = PTHREAD_MUTEX_INITIALIZER;
 time_t last_blacklist_modified_time = 0;
 time_t last_settings_modified_time = 0;
-int MLPercentage = 100;
+int mlPercentage = 100;
 
 char blacklist[BLACKLIST_MAX][IP_STR_LEN];
 int blacklist_count = 0;
@@ -213,13 +213,13 @@ void load_settings(const char *filename) {
         if (sscanf(line, "%[^=]=%d", key, &value) == 2) {
             key[strcspn(key, " \t\n")] = 0;
 
-            if (strcmp(key, "MLPercentage") == 0) {
+            if (strcmp(key, "mlPercentage") == 0) {
                 if (value >= 0 && value <= 100) {
-                    MLPercentage = value;
-                    fprintf(log_file, "Settings: MLPercentage updated to: %d\n", value);
+                    mlPercentage = value;
+                    fprintf(log_file, "Settings: mlPercentage updated to: %d\n", value);
                 }
                 else {
-                    fprintf(log_file, "Settings: Invalid MLPercentage %d\n", value);
+                    fprintf(log_file, "Settings: Invalid mlPercentage %d\n", value);
                 }
             }
             // more settings can be added here following the above example
@@ -338,11 +338,11 @@ void *forward_packets(void *args) {
 
         // Log packet data to the ML system via stdout
         double random_value = (double)rand() / RAND_MAX * 100;
-        if (random_value < MLPercentage) {
+        if (random_value < mlPercentage) {
             // Send the packet to the ML system
             packet_to_pipe(packet, header.len);
 
-            fprintf(log_file, "Package sent to ML system at a percentage of: %i\n", MLPercentage);
+            fprintf(log_file, "Package sent to ML system at a percentage of: %i\n", mlPercentage);
             fflush(log_file);
         }
 
