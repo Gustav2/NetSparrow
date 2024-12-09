@@ -149,11 +149,18 @@ def read_from_pipe():
                         logging.info(f"Pushing to blacklist: {current_ip} with confidence: {confidence}")
                         try:
                             response = requests.post(url, headers=headers, json=data)
-                            logging.info(f"Response: {response.status_code}")
-                        except Exception as e:
+                            logging.info(f"Response status code: {response.status_code}")
+                            # Optionally log response body if needed
+                            logging.info(f"Response body: {response.json()}")
+
+                        except requests.exceptions.RequestException as e:
                             logging.error(f"Failed to push to blacklist: {e}")
+
+                        except ValueError as e:  # For JSON decode errors
+                            logging.error(f"Failed to parse response JSON: {e}")
+
+                        finally:
                             logging.info("--x--" * 10)
-                            continue
 
             except Exception as e:
                 logging.error(f"Error reading from pipe: {e}")
