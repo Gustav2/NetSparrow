@@ -39,7 +39,7 @@ def pull_blacklist(CENTRALTOKEN):
         logging.info("Blacklist URL set...")
 
         response = requests.get(url, headers=headers)
-        logging.info("Got blacklist data...")
+        #logging.info("Got blacklist data...")
         blacklist_data = response.json()["myblacklists"]
 
         with open(BLACKLIST_PATH, 'w', newline='') as file:
@@ -80,9 +80,11 @@ def pull_settings(CENTRALTOKEN):
 
 def pull_all(CENTRALTOKEN):
     while True:
+        logging.info("=" * 50)
         pull_blacklist(CENTRALTOKEN)
         logging.info("-" * 50)
         time.sleep(1)
+        logging.info("-" * 50)
         pull_settings(CENTRALTOKEN)
         logging.info("=" * 50)
         time.sleep(4)
@@ -116,7 +118,7 @@ def read_from_pipe():
                 source_ip_str = ip_bytes_to_string(source_ip)
                 dest_ip_str = ip_bytes_to_string(dest_ip)
 
-                logging.info(f"Packet read from pipe: {source_ip_str} -> {dest_ip_str} with confidence {confidence}")
+                #logging.info(f"Packet read from pipe: {source_ip_str} -> {dest_ip_str} with confidence {confidence}")
 
                 if float(confidence) >= float(ml_confidence_threshold):
                     logging.info("Confidence passed, pushing to blacklist...")
@@ -143,11 +145,11 @@ def read_from_pipe():
 
                     else:
                         logging.info(f"Pushing to blacklist: {current_ip} with confidence: {confidence}")
-                        logging.info("-" * 50)
                         try:
                             response = requests.post(url, headers=headers, json=data)
                         except requests.exceptions.RequestException as e:
                             logging.error(f"Failed to push to blacklist: {e}")
+                            logging.info("--x--" * 10)
                             continue
 
             except Exception as e:
