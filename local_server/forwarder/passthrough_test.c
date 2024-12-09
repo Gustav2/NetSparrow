@@ -351,12 +351,8 @@ void *monitor_blacklist(void *arg) {
             if (current_settings_time - last_settings_modified_time > 1) {
                 fprintf(log_file, "Settings file changed, reloading...\n");
                 fflush(log_file);
-                if (load_settings(settings_file_path) == 0) { // Assuming 0 indicates success
-                    last_settings_modified_time = current_settings_time;
-                } else {
-                    fprintf(log_file, "Error reloading settings file: %s\n", settings_file_path);
-                    fflush(log_file);
-                }
+                load_settings(settings_file_path);
+                last_settings_modified_time = current_settings_time;
             }
         }
 
