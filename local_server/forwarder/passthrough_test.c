@@ -295,14 +295,13 @@ void *monitor_files(void *arg) {
     if (wd_blacklist < 0) {
         perror("inotify_add_watch for blacklist");
         close(fd);
-        return NULL;
+        return NULL; 
     }
 
     // Add watch on the settings file
     wd_settings = inotify_add_watch(fd, settings_file_path, IN_MODIFY | IN_CREATE | IN_DELETE);
     if (wd_settings < 0) {
         perror("inotify_add_watch for settings");
-        close(wd_blacklist);
         close(fd);
         return NULL;
     }
