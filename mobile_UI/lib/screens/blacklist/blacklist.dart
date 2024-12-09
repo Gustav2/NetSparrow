@@ -20,8 +20,8 @@ class _BlacklistState extends State<Blacklist> {
   List blacklist = [];
   List myBlacklist = [];
   bool loading = false;
-  int maxEntriesBlocked = 500;
-  int maxEntriesIgnored = 500;
+  int maxEntriesBlocked = 10;
+  int maxEntriesIgnored = 10;
 
   @override
   void initState() {
@@ -62,69 +62,65 @@ class _BlacklistState extends State<Blacklist> {
   }
 
   Widget _buildBlockedIPsSection() {
+    final blockedEntries = blacklist
+        .where((entry) => myBlacklist.any((myentry) =>
+            myentry['blacklist_entry__capturedpacket_entry__ip'] ==
+            entry['capturedpacket_entry__ip']))
+        .take(maxEntriesBlocked);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 8),
-          child: myBlacklist.isEmpty
+          child: blockedEntries.isEmpty
               ? const StyledHeading('The blacklist is empty')
               : const StyledHeading('Blocked IPs'),
         ),
-        ...blacklist.take(maxEntriesBlocked).map((entry) {
-          bool isBlocked = myBlacklist.any((myentry) =>
-              myentry['blacklist_entry__capturedpacket_entry__ip'] ==
-              entry['capturedpacket_entry__ip']);
-
-          if (isBlocked) {
-            return FutureBuilder<String>(
-              future: _resolveDns(entry['capturedpacket_entry__ip']),
-              builder: (context, snapshot) {
-                return BlacklistCard(
-                  entry['capturedpacket_entry__ip'] ?? 'Unknown IP',
-                  snapshot.data ?? 'Resolving...',
-                  'blocked',
-                  fetch: fetchFirewallData,
-                );
-              },
-            );
-          }
-          return Container();
+        ...blockedEntries.map((entry) {
+          return FutureBuilder<String>(
+            future: _resolveDns(entry['capturedpacket_entry__ip']),
+            builder: (context, snapshot) {
+              return BlacklistCard(
+                entry['capturedpacket_entry__ip'] ?? 'Unknown IP',
+                snapshot.data ?? 'Resolving...',
+                'blocked',
+                fetch: fetchFirewallData,
+              );
+            },
+          );
         }),
       ],
     );
   }
 
   Widget _buildIgnoredIPsSection() {
+    final ignoredEntries = blacklist
+        .where((entry) => !myBlacklist.any((myentry) =>
+            myentry['blacklist_entry__capturedpacket_entry__ip'] ==
+            entry['capturedpacket_entry__ip']))
+        .take(maxEntriesIgnored);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (!blacklist.every((entry) => myBlacklist.any((myentry) =>
-            myentry['blacklist_entry__capturedpacket_entry__ip'] ==
-            entry['capturedpacket_entry__ip'])))
+        if (ignoredEntries.isNotEmpty)
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 8),
             child: StyledHeading('Ignored IPs'),
           ),
-        ...blacklist.take(maxEntriesIgnored).map((entry) {
-          bool isBlocked = myBlacklist.any((myentry) =>
-              myentry['blacklist_entry__capturedpacket_entry__ip'] ==
-              entry['capturedpacket_entry__ip']);
-
-          if (!isBlocked) {
-            return FutureBuilder<String>(
-              future: _resolveDns(entry['capturedpacket_entry__ip']),
-              builder: (context, snapshot) {
-                return BlacklistCard(
-                  entry['capturedpacket_entry__ip'] ?? 'Unknown IP',
-                  snapshot.data ?? 'Resolving...',
-                  'none',
-                  fetch: fetchFirewallData,
-                );
-              },
-            );
-          }
-          return Container();
+        ...ignoredEntries.map((entry) {
+          return FutureBuilder<String>(
+            future: _resolveDns(entry['capturedpacket_entry__ip']),
+            builder: (context, snapshot) {
+              return BlacklistCard(
+                entry['capturedpacket_entry__ip'] ?? 'Unknown IP',
+                snapshot.data ?? 'Resolving...',
+                'none',
+                fetch: fetchFirewallData,
+              );
+            },
+          );
         }),
       ],
     );
@@ -212,20 +208,18 @@ class _BlacklistState extends State<Blacklist> {
   }
 
   bool _hasMoreBlockedEntries() {
-    return blacklist
-            .where((entry) => myBlacklist.any((myentry) =>
-                myentry['blacklist_entry__capturedpacket_entry__ip'] ==
-                entry['capturedpacket_entry__ip']))
-            .length >
-        maxEntriesBlocked;
+    final blockedCount = blacklist.where((entry) => myBlacklist.any((myentry) =>
+        myentry['blacklist_entry__capturedpacket_entry__ip'] ==
+        entry['capturedpacket_entry__ip'])).length;
+
+    return blockedCount > maxEntriesBlocked;
   }
 
   bool _hasMoreIgnoredEntries() {
-    return blacklist
-            .where((entry) => !myBlacklist.any((myentry) =>
-                myentry['blacklist_entry__capturedpacket_entry__ip'] ==
-                entry['capturedpacket_entry__ip']))
-            .length >
-        maxEntriesIgnored;
+    final ignoredCount = blacklist.where((entry) => !myBlacklist.any((myentry) =>
+        myentry['blacklist_entry__capturedpacket_entry__ip'] ==
+        entry['capturedpacket_entry__ip'])).length;
+
+    return ignoredCount > maxEntriesIgnored;
   }
 }

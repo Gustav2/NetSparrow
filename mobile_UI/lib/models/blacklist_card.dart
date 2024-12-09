@@ -63,28 +63,12 @@ class BlacklistCard extends StatelessWidget {
   }
 
   Future<void> addToBlacklist() async {
-    if (url == 'No URL') {
-      print('test1');
-      await apiService.addToMyBlacklist(ip, 'null');
-    } else if (ip == 'Unknown IP') {
-      print('test2');
-      await apiService.addToMyBlacklist('null', url);
-    } else {
-      print('test3');
-      await apiService.addToMyBlacklist(ip, url);
-    }
+    print('test1');
+    await apiService.addToMyBlacklist(ip, 'null');
   }
 
   Future<void> removeFromBlacklist() async{
-    if (url == 'No URL') {
-      print('test4');
-      await apiService.removeFromMyBlacklist(ip, 'null');
-    } else if (ip == 'Unknown IP') {
-      print('test5');
-      await apiService.removeFromMyBlacklist('null', url);
-    } else {
-      print('test6');
-      await apiService.removeFromMyBlacklist(ip, url);
-    }
+    print('test4');
+    await apiService.removeFromMyBlacklist(ip, 'null');
   }
 }
