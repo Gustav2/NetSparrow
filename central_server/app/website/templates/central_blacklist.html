@@ -24,7 +24,7 @@
       {% for blacklist in central_blacklist %}
       <tr>
           <th scope="row">{{ forloop.counter }}</th>
-          <td>{{ myblacklist.blacklist_entry.id }}</td>
+          <td>{{ blacklist.id }}</td>
           <td>{{ blacklist.capturedpacket_entry.url }}</td>
           <td>{{ blacklist.capturedpacket_entry.ip }}</td>
           <td>
