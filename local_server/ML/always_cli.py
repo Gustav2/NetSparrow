@@ -110,7 +110,6 @@ def create_output_pipe():
 
 def write_packet_data(output_fd, source_ip, dest_ip, confidence):
     try:
-        # Pack the IPs and confidence into binary format
         print("Confidence in Write packet: ", confidence)
         binary_data = struct.pack(OUTPUT_FORMAT, source_ip, dest_ip, float(confidence))
         bytes_written = os.write(output_fd, binary_data)
