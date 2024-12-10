@@ -213,6 +213,11 @@ def process_batch(model, packet_buffer, output_fd):
         print("Predictions in Process Batch: ", predictions)
 
         confidences = predictions.squeeze()
+        confidences = np.clip(confidences, 0, 1)  # Ensure range is [0,1]
+
+        # Add confidence smoothing to avoid extreme values
+        epsilon = 1e-7
+        confidences = (1 - 2*epsilon) * confidences + epsilon
 
         if confidences.ndim == 0:
             confidences = np.array([confidences])
