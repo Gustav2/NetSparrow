@@ -111,6 +111,7 @@ def create_output_pipe():
 def write_packet_data(output_fd, source_ip, dest_ip, confidence):
     try:
         # Pack the IPs and confidence into binary format
+        print("Confidence in Write packet: ", confidence)
         binary_data = struct.pack(OUTPUT_FORMAT, source_ip, dest_ip, float(confidence))
         bytes_written = os.write(output_fd, binary_data)
         return bytes_written > 0
@@ -208,12 +209,17 @@ def process_batch(model, packet_buffer, output_fd):
         data = packet_to_dataframe(packet_buffer)
         preprocessed_data = preprocess_data(data)
         predictions = model.predict(preprocessed_data, verbose=0)
+
+        print("Predictions in Process Batch: ", predictions)
+
         confidences = predictions.squeeze()
 
         if confidences.ndim == 0:
             confidences = np.array([confidences])
         elif confidences.ndim > 1:
             confidences = confidences.flatten()
+
+        print("Confidences in Process Batch: ", confidences)
 
         for i, packet in enumerate(packet_buffer):
             if not write_packet_data(output_fd, packet.source_ip, packet.dest_ip, confidences[i]):
