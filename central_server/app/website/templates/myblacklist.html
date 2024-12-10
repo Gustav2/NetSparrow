@@ -16,6 +16,7 @@
     <thead class="table-dark">
       <tr>
         <th scope="col">#</th>
+        <th scope="col">ID</th>
         <th scope="col">URL</th>
         <th scope="col">IP address</th>
         <th scope="col">Actions</th>
@@ -25,7 +26,8 @@
       {% if myblacklists %}
       {% for myblacklist in myblacklists %}
           <tr>
-              <th scope="row">{{ myblacklist.blacklist_entry.id }}</th>
+              <th scope="row">{{ forloop.counter }}</th>
+              <td>{{ myblacklist.blacklist_entry.id }}</td>
               <td>{{ myblacklist.blacklist_entry.capturedpacket_entry.url }}</td>
               <td>{{ myblacklist.blacklist_entry.capturedpacket_entry.ip }}</td>
               <td>
