@@ -208,7 +208,7 @@ def process_batch(model, packet_buffer, output_fd):
     try:
         data = packet_to_dataframe(packet_buffer)
         preprocessed_data = preprocess_data(data)
-        predictions = model.predict(preprocessed_data, verbose=0)
+        predictions = model.predict(preprocessed_data, verbose=2)
 
         print("Predictions in Process Batch: ", predictions)
 
