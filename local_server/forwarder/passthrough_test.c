@@ -277,6 +277,7 @@ int fd = -1;  // inotify file descriptor
 int wd_blacklist = -1;  // Watch descriptor for blacklist file
 int wd_settings = -1;   // Watch descriptor for settings file
 
+// Function to monitor if the blacklist or settings file is updated
 void *monitor_files(void *arg) {
     while (keep_running) {
         // Monitor blacklist file
