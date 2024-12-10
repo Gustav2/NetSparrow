@@ -208,14 +208,11 @@ def process_batch(model, packet_buffer, output_fd):
     try:
         data = packet_to_dataframe(packet_buffer)
         preprocessed_data = preprocess_data(data)
-        predictions = model.predict(preprocessed_data, verbose=2)
-
-        print("Predictions in Process Batch: ", predictions)
+        predictions = model.predict(preprocessed_data, verbose=0)
 
         confidences = predictions.squeeze()
-        confidences = np.clip(confidences, 0, 1)  # Ensure range is [0,1]
+        confidences = np.clip(confidences, 0, 1)
 
-        # Add confidence smoothing to avoid extreme values
         epsilon = 1e-7
         confidences = (1 - 2*epsilon) * confidences + epsilon
 
@@ -224,13 +221,10 @@ def process_batch(model, packet_buffer, output_fd):
         elif confidences.ndim > 1:
             confidences = confidences.flatten()
 
-        print("Confidences in Process Batch: ", confidences)
-
         for i, packet in enumerate(packet_buffer):
             if not write_packet_data(output_fd, packet.source_ip, packet.dest_ip, confidences[i]):
                 print(f"Failed to write packet data for packet {i}")
                 continue  # Continue processing other packets
-            print(f"Packet {i}: {confidences[i]}")
 
         return True
     except tf.errors.InvalidArgumentError as e:
