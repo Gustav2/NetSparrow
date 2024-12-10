@@ -21,7 +21,6 @@ RECONNECT_DELAY = 0.1
 ERROR_CHECK_INTERVAL = 0.01
 MAX_EMPTY_READS = 500
 CONNECTION_TIMEOUT = 5.0
-CONFIDENCE_THRESHOLD = 0.9
 
 # Binary format for output: src_ip (4 bytes) + dest_ip (4 bytes) + confidence (4 bytes float)
 OUTPUT_FORMAT = "=4s4sf"
@@ -57,19 +56,6 @@ def read_packet(pipe_fd):
             return None
 
         unpacked = struct.unpack(fmt, raw_data)
-
-        hex_data = ' '.join(f"{b:02x}" for b in raw_data)
-        #print(f"""
-        #    Received packet: {hex_data}
-        #    Src IP: {unpacked[1]}
-        #    Dest IP: {unpacked[2]}
-        #    Packet size: {unpacked[3]}
-        #    Protocol: {unpacked[4]}
-        #    Timestamp: {datetime.fromtimestamp(unpacked[0])}
-        #    Timestamp (raw): {unpacked[0]}
-        #    """)
-
-
 
         return PacketData(
             timestamp=unpacked[0],
@@ -233,6 +219,7 @@ def process_batch(model, packet_buffer, output_fd):
             if not write_packet_data(output_fd, packet.source_ip, packet.dest_ip, confidences[i]):
                 print(f"Failed to write packet data for packet {i}")
                 continue  # Continue processing other packets
+            print(f"Packet {i}: {confidences}")
 
         return True
     except tf.errors.InvalidArgumentError as e:
