@@ -127,8 +127,8 @@ class _HomeState extends State<Home> {
         SizedBox(height: 40, child: StyledText(title)),
         Expanded(
           child: icon != Icons.error
-              ? Icon(icon, size: 40, color: color)
-              : StyledCardText(value),
+              ? Center(child: Icon(icon, size: 40, color: color))
+              : Center(child: StyledCardText(value)),
         ),
         SizedBox(
           height: 40,
