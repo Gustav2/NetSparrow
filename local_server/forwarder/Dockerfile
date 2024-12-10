@@ -19,7 +19,7 @@ WORKDIR /app
 COPY . /app
 
 # Compile the application
-RUN gcc -o packet_forwarder passthrough_test.c -lpcap -pthread `pkg-config --cflags --libs glib-2.0`
+RUN gcc -o packet_forwarder passthrough.c -lpcap -pthread `pkg-config --cflags --libs glib-2.0`
 
 # Entry point
 CMD ["./packet_forwarder", "eth1", "eth2", "/shared/blacklist.txt", "/shared/settings.txt"]
