@@ -34,6 +34,21 @@ logging.basicConfig(
     ]
 )
 
+def get_current_blacklist():
+    if BLACKLIST_PATH.exists():
+        with open(BLACKLIST_PATH, 'r') as file:
+            return set(file.read().splitlines())
+    return set()
+
+def get_current_settings():
+    settings = {}
+    if SETTINGS_PATH.exists():
+        with open(SETTINGS_PATH, 'r') as file:
+            for line in file:
+                key, value = line.strip().split('=')
+                settings[key] = value
+    return settings
+
 def pull_blacklist(CENTRALTOKEN):
     try:
         url = "https://netsparrow.viktorkirk.com/settings/myblacklist/"
@@ -44,15 +59,20 @@ def pull_blacklist(CENTRALTOKEN):
         logging.info("Blacklist URL set...")
 
         response = requests.get(url, headers=headers)
-        #logging.info("Got blacklist data...")
         blacklist_data = response.json()["myblacklists"]
 
-        with open(BLACKLIST_PATH, 'w', newline='') as file:
-            for key in blacklist_data:
-                ip = str(key["blacklist_entry__capturedpacket_entry__ip"])
-                file.write(ip + "\n")
+        new_blacklist = set(str(key["blacklist_entry__capturedpacket_entry__ip"]) for key in blacklist_data)
 
-        logging.info(f"Finished writing new blacklist of {len(blacklist_data)} entries")
+        current_blacklist = get_current_blacklist()
+
+        # If the blacklist has changed, update the file
+        if new_blacklist != current_blacklist:
+            with open(BLACKLIST_PATH, 'w') as file:
+                for ip in new_blacklist:
+                    file.write(ip + "\n")
+            logging.info(f"Finished writing new blacklist of {len(blacklist_data)} entries")
+        else:
+            logging.info("Blacklist has not changed. No update needed.")
 
     except Exception:
         logging.info("Failed to pull blacklist, passing...")
@@ -70,18 +90,29 @@ def pull_settings(CENTRALTOKEN):
         settings_data = response.json()
         logging.info(settings_data)
 
+        new_settings = {}
         if "mlCaution" in settings_data:
             ml_confidence_threshold = settings_data["mlCaution"]
             logging.info(f"New ML Confidence Threshold: {ml_confidence_threshold}")
 
-        with open(SETTINGS_PATH, 'w', newline='') as file:
-            for key, value in settings_data.items():
-                file.write(f"{key}={value}\n")
+        # Build the settings dictionary
+        for key, value in settings_data.items():
+            new_settings[key] = str(value)
 
-        logging.info("Finished writing settings")
+        current_settings = get_current_settings()
+
+        # If the settings have changed, update the file
+        if new_settings != current_settings:
+            with open(SETTINGS_PATH, 'w') as file:
+                for key, value in new_settings.items():
+                    file.write(f"{key}={value}\n")
+            logging.info("Finished writing new settings")
+        else:
+            logging.info("Settings have not changed. No update needed.")
 
     except Exception as e:
         logging.info(f"Failed to pull settings with error: {str(e)}, passing...")
+
 
 def pull_all(CENTRALTOKEN):
     while True:

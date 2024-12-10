@@ -8,7 +8,9 @@ RUN apt-get update && apt-get install -y \
     ethtool \
     iproute2 \
     nano \
-    sudo
+    sudo \
+    libglib2.0-dev \
+    pkg-config
 
 # Set the working directory
 WORKDIR /app
@@ -16,9 +18,8 @@ WORKDIR /app
 # Copy the source code
 COPY . /app
 
-
 # Compile the application
-RUN gcc -o packet_forwarder passthrough.c -lpcap -pthread
+RUN gcc -o packet_forwarder passthrough_test.c -lpcap -pthread `pkg-config --cflags --libs glib-2.0`
 
 # Entry point
 CMD ["./packet_forwarder", "eth1", "eth2", "/shared/blacklist.txt", "/shared/settings.txt"]
