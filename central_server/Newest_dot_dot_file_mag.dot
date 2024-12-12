@@ -1,5 +1,5 @@
 digraph model_graph {
-  fontname = "Helvetica";
+  fntname = "Helvetica";
   fontsize = 10;
   splines = true;
   rankdir = "TB"; // Vertical layout to reduce footprint
@@ -8,13 +8,13 @@ digraph model_graph {
     fontname = "Helvetica"
     fontsize = 10
     shape = "plaintext"
-    margin = 0.1 // Reduced margin for compact nodes
+    margin = 0 // Reduced margin for compact nodes
   ]
 
   edge [
     fontname = "Helvetica"
     fontsize = 9
-    arrowsize = 0.7 // Smaller arrows for compact edges
+    arrowsize = 0.9 // Smaller arrows for compact edges
   ]
 
   // Labels
@@ -49,7 +49,7 @@ digraph model_graph {
     <TABLE BGCOLOR="white" BORDER="1" CELLBORDER="0" CELLSPACING="0">
     <TR><TD COLSPAN="2" CELLPADDING="5" ALIGN="CENTER" BGCOLOR="#1b563f">
     <FONT FACE="Roboto" COLOR="white" POINT-SIZE="10"><B>
-    User<BR/>&lt;<FONT FACE="Roboto"><I>AbstractUser</I></FONT>&gt;
+    User<BR/>&lt;<FONT FACE="Roboto"><I>AbstractUser      </I></FONT>&gt;
     </B></FONT></TD></TR>
   
   
@@ -289,7 +289,7 @@ digraph model_graph {
     <TR><TD ALIGN="LEFT" BORDER="0">
     <FONT FACE="Roboto"><B>user</B></FONT>
     </TD><TD ALIGN="LEFT">
-    <FONT FACE="Roboto"><B>OneToOneField (id)</B></FONT>
+    <FONT FACE="Roboto"><B>OneToOneField (id) </B></FONT>
     </TD></TR>
   
   
@@ -382,7 +382,7 @@ digraph model_graph {
     <TR><TD ALIGN="LEFT" BORDER="0">
     <FONT FACE="Roboto"><B>user</B></FONT>
     </TD><TD ALIGN="LEFT">
-    <FONT FACE="Roboto"><B>OneToOneField (id)</B></FONT>
+    <FONT FACE="Roboto"><B>OneToOneField (id) </B></FONT>
     </TD></TR>
   
   
@@ -396,27 +396,29 @@ digraph model_graph {
   
     </TABLE>
     >]
+    {rank=same django_contrib_auth_models_User website_models_Blacklist}
+    {rank=same django_contrib_auth_models_User django_contrib_auth_models_Group}
 
   // Relations
   django_contrib_auth_models_User -> django_contrib_auth_models_Group
   [label=" groups (user)"] [arrowhead=dot arrowtail=dot, dir=both];
 
   website_models_Blacklist -> website_models_CapturedPacket
-  [label=" capturedpacket_entry (blacklist)"] [arrowhead=none, arrowtail=dot, dir=both];
+  [label=" capturedpacket_entry (blacklist)    "] [arrowhead=none, arrowtail=dot, dir=both];
 
   website_models_MyBlacklist -> django_contrib_auth_models_User
   [label=" user (myblacklist)"] [arrowhead=none, arrowtail=dot, dir=both];
 
   website_models_MyBlacklist -> website_models_Blacklist
-  [label=" blacklist_entry (myblacklist)"] [arrowhead=none, arrowtail=dot, dir=both];
+  [label="  blacklist_entry (myblacklist)    "] [arrowhead=none, arrowtail=dot, dir=both];
 
   website_models_CapturedPacket -> django_contrib_auth_models_User
-  [label=" user (capturedpacket)"] [arrowhead=none, arrowtail=dot, dir=both];
+  [label="  user (capturedpacket)"] [arrowhead=none, arrowtail=dot, dir=both];
 
   website_models_MySettings -> django_contrib_auth_models_User
-  [label=" user (settings)"] [arrowhead=none, arrowtail=none, dir=both];
+  [label="  user (settings)"] [arrowhead=none, arrowtail=none, dir=both];
 
   rest_framework_authtoken_models_Token -> django_contrib_auth_models_User
-  [label=" user (auth_token)"] [arrowhead=none, arrowtail=none, dir=both];
+  [label="  user (auth_token)"] [arrowhead=none, arrowtail=none, dir=both];
 
 }
