@@ -15,17 +15,17 @@ class ApiService {
   // Fetches the firewall status from the API. reuturns true if the system i running as expected.
   Future<bool> getStatus() async {
     final response = await client.get(
-      Uri.parse("$blacklistUrl/settings/centralblacklist/"), // sends a get request to the centralblacklist API
+      Uri.parse("$blacklistUrl/settings/centralblacklist/"),
       headers: {
-        'Authorization': token, // includes the token in the header
+        'Authorization': token,
         'Content-Type': 'application/json',
       },
     );
 
     if (response.statusCode == 200) {
-      return true; // if the response is successful, return true
+      return true;
     } else {
-      return false; // if the response is not successful, return false
+      return false;
     }
   }
 

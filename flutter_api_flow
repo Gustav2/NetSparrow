@@ -1,0 +1,20 @@
+// Flutter App and API Communication Flow
+digraph {
+	rankdir=LR
+	node [shape=box style=rounded]
+	flutter_app [label="Flutter
+Application"]
+	api_service [label="API Service
+Layer"]
+	node [shape=cylinder]
+	api [label="External
+API"]
+	node [shape=box style=rounded]
+	response [label="Response
+Handler"]
+	flutter_app -> api_service [label="HTTP Request"]
+	api_service -> api [label="API Call"]
+	api -> api_service [label="JSON Response"]
+	api_service -> response [label="Parse Data"]
+	response -> flutter_app [label="Update UI"]
+}

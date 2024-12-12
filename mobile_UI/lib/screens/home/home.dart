@@ -5,6 +5,7 @@ import 'package:my_app/screens/home/info_card_grid.dart';
 import 'package:my_app/screens/log/log.dart';
 import 'package:my_app/screens/speed_log/speed_log.dart';
 import 'package:my_app/shared/styled_text.dart';
+import 'package:my_app/theme.dart';
 
 class Home extends StatefulWidget {
   const Home({super.key});
@@ -176,7 +177,7 @@ class _HomeState extends State<Home> {
   Color _getStatusColor(String status) {
     switch (status) {
       case 'running':
-        return Colors.green;
+        return AppColors.primaryAccent;
       case 'error':
         return Colors.red;
       default:
