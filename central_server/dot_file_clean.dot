@@ -1,59 +1,31 @@
 digraph model_graph {
-  // Dotfile by Django-Extensions graph_models
-  // Created: 2024-11-18 12:40
-  // Cli Options: -a
-
-  fontname = "Roboto"
-  fontsize = 8
-  splines  = true
-  rankdir = "TB"
+  fntname = "Helvetica";
+  fontsize = 10;
+  splines = true;
+  rankdir = "TB"; // Vertical layout to reduce footprint
 
   node [
-    fontname = "Roboto"
-    fontsize = 8
+    fontname = "Helvetica"
+    fontsize = 10
     shape = "plaintext"
+    margin = 0 // Reduced margin for compact nodes
   ]
 
   edge [
-    fontname = "Roboto"
-    fontsize = 8
+    fontname = "Helvetica"
+    fontsize = 9
+    arrowsize = 0.9 // Smaller arrows for compact edges
   ]
 
   // Labels
-
-  django_contrib_auth_models_Group [label=<
-    <TABLE BGCOLOR="white" BORDER="1" CELLBORDER="0" CELLSPACING="0">
-    <TR><TD COLSPAN="2" CELLPADDING="5" ALIGN="CENTER" BGCOLOR="#1b563f">
-    <FONT FACE="Roboto" COLOR="white" POINT-SIZE="10"><B>
-    Group
-    </B></FONT></TD></TR>
-  
-  
-    <TR><TD ALIGN="LEFT" BORDER="0">
-    <FONT FACE="Roboto"><B>id</B></FONT>
-    </TD><TD ALIGN="LEFT">
-    <FONT FACE="Roboto"><B>AutoField</B></FONT>
-    </TD></TR>
-  
-  
-  
-    <TR><TD ALIGN="LEFT" BORDER="0">
-    <FONT FACE="Roboto">name</FONT>
-    </TD><TD ALIGN="LEFT">
-    <FONT FACE="Roboto">CharField</FONT>
-    </TD></TR>
-  
-  
-    </TABLE>
-    >]
 
   django_contrib_auth_models_User [label=<
     <TABLE BGCOLOR="white" BORDER="1" CELLBORDER="0" CELLSPACING="0">
     <TR><TD COLSPAN="2" CELLPADDING="5" ALIGN="CENTER" BGCOLOR="#1b563f">
     <FONT FACE="Roboto" COLOR="white" POINT-SIZE="10"><B>
-    User<BR/>&lt;<FONT FACE="Roboto"><I>AbstractUser</I></FONT>&gt;
+    User
     </B></FONT></TD></TR>
-  
+ 
   
     <TR><TD ALIGN="LEFT" BORDER="0">
     <FONT FACE="Roboto"><B>id</B></FONT>
@@ -145,11 +117,12 @@ digraph model_graph {
     </TABLE>
     >]
 
+
   website_models_Blacklist [label=<
     <TABLE BGCOLOR="white" BORDER="1" CELLBORDER="0" CELLSPACING="0">
     <TR><TD COLSPAN="2" CELLPADDING="5" ALIGN="CENTER" BGCOLOR="#1b563f">
     <FONT FACE="Roboto" COLOR="white" POINT-SIZE="10"><B>
-    Blacklist
+    CentralBlacklist
     </B></FONT></TD></TR>
   
   
@@ -196,7 +169,7 @@ digraph model_graph {
   
   
     <TR><TD ALIGN="LEFT" BORDER="0">
-    <FONT FACE="Roboto"><B>blacklist_entry</B></FONT>
+    <FONT FACE="Roboto"><B>centralblacklist_entry</B></FONT>
     </TD><TD ALIGN="LEFT">
     <FONT FACE="Roboto"><B>ForeignKey (id)</B></FONT>
     </TD></TR>
@@ -271,6 +244,96 @@ digraph model_graph {
     </TABLE>
     >]
 
+  website_models_MySettings [label=<
+    <TABLE BGCOLOR="white" BORDER="1" CELLBORDER="0" CELLSPACING="0">
+    <TR><TD COLSPAN="2" CELLPADDING="5" ALIGN="CENTER" BGCOLOR="#1b563f">
+    <FONT FACE="Roboto" COLOR="white" POINT-SIZE="10"><B>
+    MySettings
+    </B></FONT></TD></TR>
+  
+  
+    <TR><TD ALIGN="LEFT" BORDER="0">
+    <FONT FACE="Roboto"><B>id</B></FONT>
+    </TD><TD ALIGN="LEFT">
+    <FONT FACE="Roboto"><B>BigAutoField</B></FONT>
+    </TD></TR>
+  
+  
+  
+    <TR><TD ALIGN="LEFT" BORDER="0">
+    <FONT FACE="Roboto"><B>user</B></FONT>
+    </TD><TD ALIGN="LEFT">
+    <FONT FACE="Roboto"><B>OneToOneField (id) </B></FONT>
+    </TD></TR>
+  
+  
+  
+    <TR><TD ALIGN="LEFT" BORDER="0">
+    <FONT FACE="Roboto">auto_add_blacklist</FONT>
+    </TD><TD ALIGN="LEFT">
+    <FONT FACE="Roboto">BooleanField</FONT>
+    </TD></TR>
+  
+  
+  
+    <TR><TD ALIGN="LEFT" BORDER="0">
+    <FONT FACE="Roboto">dark_mode</FONT>
+    </TD><TD ALIGN="LEFT">
+    <FONT FACE="Roboto">BooleanField</FONT>
+    </TD></TR>
+  
+  
+  
+    <TR><TD ALIGN="LEFT" BORDER="0">
+    <FONT FACE="Roboto">enable_ip_blocking</FONT>
+    </TD><TD ALIGN="LEFT">
+    <FONT FACE="Roboto">BooleanField</FONT>
+    </TD></TR>
+  
+  
+  
+    <TR><TD ALIGN="LEFT" BORDER="0">
+    <FONT FACE="Roboto">log_suspicious_packets</FONT>
+    </TD><TD ALIGN="LEFT">
+    <FONT FACE="Roboto">BooleanField</FONT>
+    </TD></TR>
+  
+  
+  
+    <TR><TD ALIGN="LEFT" BORDER="0">
+    <FONT FACE="Roboto">ml_caution</FONT>
+    </TD><TD ALIGN="LEFT">
+    <FONT FACE="Roboto">DecimalField</FONT>
+    </TD></TR>
+  
+  
+  
+    <TR><TD ALIGN="LEFT" BORDER="0">
+    <FONT FACE="Roboto">ml_percentage</FONT>
+    </TD><TD ALIGN="LEFT">
+    <FONT FACE="Roboto">IntegerField</FONT>
+    </TD></TR>
+  
+  
+  
+    <TR><TD ALIGN="LEFT" BORDER="0">
+    <FONT FACE="Roboto">notify_blacklist_updates</FONT>
+    </TD><TD ALIGN="LEFT">
+    <FONT FACE="Roboto">BooleanField</FONT>
+    </TD></TR>
+  
+  
+  
+    <TR><TD ALIGN="LEFT" BORDER="0">
+    <FONT FACE="Roboto">notify_suspicious_activity</FONT>
+    </TD><TD ALIGN="LEFT">
+    <FONT FACE="Roboto">BooleanField</FONT>
+    </TD></TR>
+  
+  
+    </TABLE>
+    >]
+
 
 
 
@@ -293,7 +356,7 @@ digraph model_graph {
     <TR><TD ALIGN="LEFT" BORDER="0">
     <FONT FACE="Roboto"><B>user</B></FONT>
     </TD><TD ALIGN="LEFT">
-    <FONT FACE="Roboto"><B>OneToOneField (id)</B></FONT>
+    <FONT FACE="Roboto"><B>OneToOneField (id) </B></FONT>
     </TD></TR>
   
   
@@ -307,43 +370,26 @@ digraph model_graph {
   
     </TABLE>
     >]
-
-  rest_framework_authtoken_models_TokenProxy [label=<
-    <TABLE BGCOLOR="white" BORDER="1" CELLBORDER="0" CELLSPACING="0">
-    <TR><TD COLSPAN="2" CELLPADDING="5" ALIGN="CENTER" BGCOLOR="#1b563f">
-    <FONT FACE="Roboto" COLOR="white" POINT-SIZE="10"><B>
-    TokenProxy
-    </B></FONT></TD></TR>
-  
-    </TABLE>
-    >]
-
-
-
+    {rank=same django_contrib_auth_models_User website_models_Blacklist}
+    {rank=same django_contrib_auth_models_User}
 
   // Relations
-
-  django_contrib_auth_models_User -> django_contrib_auth_models_Group
-  [label=" groups (user)"] [arrowhead=dot arrowtail=dot, dir=both];
-
   website_models_Blacklist -> website_models_CapturedPacket
-  [label=" capturedpacket_entry (blacklist)"] [arrowhead=none, arrowtail=dot, dir=both];
+  [label=" capturedpacket_entry (centralblacklist)    "] [arrowhead=none, arrowtail=dot, dir=both];
 
   website_models_MyBlacklist -> django_contrib_auth_models_User
   [label=" user (myblacklist)"] [arrowhead=none, arrowtail=dot, dir=both];
 
   website_models_MyBlacklist -> website_models_Blacklist
-  [label=" blacklist_entry (myblacklist)"] [arrowhead=none, arrowtail=dot, dir=both];
+  [label="  centralblacklist_entry (myblacklist)    "] [arrowhead=none, arrowtail=dot, dir=both];
 
   website_models_CapturedPacket -> django_contrib_auth_models_User
-  [label=" user (capturedpacket)"] [arrowhead=none, arrowtail=dot, dir=both];
+  [label="  user (capturedpacket)"] [arrowhead=none, arrowtail=dot, dir=both];
 
+  website_models_MySettings -> django_contrib_auth_models_User
+  [label="  user (settings)"] [arrowhead=none, arrowtail=none, dir=both];
 
   rest_framework_authtoken_models_Token -> django_contrib_auth_models_User
-  [label=" user (auth_token)"] [arrowhead=none, arrowtail=none, dir=both];
-
-  rest_framework_authtoken_models_TokenProxy -> rest_framework_authtoken_models_Token
-  [label=" proxy\ninheritance"] [arrowhead=empty, arrowtail=none, dir=both];
-
+  [label="  user (auth_token)"] [arrowhead=none, arrowtail=none, dir=both];
 
 }
