@@ -1,7 +1,9 @@
 import requests
 
+# API endpoint
 url = "https://netsparrow.viktorkirk.com/api/settings/update/"
 
+# User token for authentication
 headers = {
     "Authorization": "Token f990deebf6b6f888560a4b2bc131989496a55030",
     "Content-Type": "application/json",
@@ -18,7 +20,9 @@ data = {
     "mlPercentage" : 1,
 }
 
+# Make the POST request
 response = requests.post(url, json=data, headers=headers)
 
+# Print the response
 print(response.status_code)
 print(response.json())
