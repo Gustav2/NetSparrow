@@ -159,17 +159,13 @@ def read_from_pipe():
                 if float(confidence) >= float(ml_confidence_threshold):
                     #logging.info("Confidence passed, pushing to blacklist...")
                     if source_ip_str == myIP:
-                        data = {
-                            "ip": dest_ip_str
-                        }
+                        data = {"ip": dest_ip_str}
                     else:
-                        data = {
-                            "ip": source_ip_str
-                        }
+                        data = {"ip": source_ip_str}
                     current_ip = ipaddress.ip_address(data["ip"])
 
                     exempt_ranges = [
-                        ipaddress.ip_network("0.0.0.0"), #
+                        ipaddress.ip_network("0.0.0.0/8"), # private block
                         ipaddress.ip_network("130.225.37.168"), # strato
                         ipaddress.ip_network("140.82.0.0/16"), # git circa
                         ipaddress.ip_network("10.0.0.0/8"), # 10.0.0.0 - 10.255.255.255

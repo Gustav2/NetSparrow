@@ -332,5 +332,6 @@ pyrightconfig.json
 
 ML/data/
 local_DB/website
+testscript.py
 
 *.pem
