@@ -5,8 +5,7 @@ import json
 url = "https://netsparrow.viktorkirk.com/settings/add_to_myblacklist/"
 
 data = {
-    "ip": "10.10.10.10",
-    "url": "No URL"
+    "ip": "142.250.74.67",
 }
 
 # User token for authentication

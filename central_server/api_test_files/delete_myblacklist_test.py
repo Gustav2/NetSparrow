@@ -10,8 +10,7 @@ headers = {
     "Content-Type": "application/json"
 }
 data = {
-    "ip": "1.1.1.1",
-    "url": "Https://www.google.com"
+    "ip": "142.250.74.67",
 }
 
 # Make the DELETE request

@@ -10,12 +10,12 @@ headers = {
 }
 
 data = {
-    "auto_add_blacklist": True,
-    "log_suspicious_packets": True,
+    "auto_add_blacklist": False,
+    "log_suspicious_packets": False,
     "enable_ip_blocking": False,
-    "dark_mode": True,
+    "dark_mode": False,
     "notify_blacklist_updates": False,
-    "notify_suspicious_activity": True,
+    "notify_suspicious_activity": False,
     "mlCaution" : 0.9,
     "mlPercentage" : 1,
 }
