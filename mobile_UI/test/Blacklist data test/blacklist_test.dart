@@ -64,7 +64,6 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Blocked IPs'), findsOneWidget);
-
       expect(find.text('192.168.1.10'), findsOneWidget);
       expect(find.text('192.168.1.20'), findsOneWidget);
     });
@@ -86,7 +85,6 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      // The ignored IP should be 192.168.1.30 since it's not in myBlacklist
       expect(find.text('Ignored IPs'), findsOneWidget);
       expect(find.text('192.168.1.30'), findsOneWidget);
     });
@@ -136,33 +134,27 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      // Initially, maxEntriesBlocked = 10
+      // maxEntriesBlocked = 10
       for (var i = 1; i <= 10; i++) {
         expect(find.text('192.168.1.$i'), findsOneWidget);
       }
 
-      // Verify that IP #11 is not visible yet
+      // IP 11 is not visible yet
       expect(find.text('192.168.1.11'), findsNothing);
 
-      // Press "Show more"
+      // show more
       final showMoreButton = find.text('Show more').first;
       expect(showMoreButton, findsOneWidget);
       await tester.tap(showMoreButton);
       await tester.pumpAndSettle();
 
-      // Now check that '192.168.1.11' is visible
+      // 192.168.1.11 visible
       expect(find.text('192.168.1.11'), findsOneWidget);
     });
   });
 }
 
-/// A simple wrapper to inject the mockApiService into the Blacklist state.
-/// We do this because the original code creates a new ApiService internally.
-/// You can adjust the Blacklist widget to accept an ApiService as a constructor argument
-/// or use a dependency injection approach (like Provider) to inject the mock in tests.
-///
-/// For the purpose of this example, let's assume we modify the Blacklist widget to accept
-/// an optional `apiService` parameter and use it if provided.
+
 class BlacklistTestWrapper extends StatelessWidget {
   final ApiService mockApiService;
 
@@ -175,9 +167,7 @@ class BlacklistTestWrapper extends StatelessWidget {
   }
 }
 
-/// This widget is a copy of Blacklist, but modified to accept a custom ApiService.
-/// In your actual code, you could incorporate dependency injection or a parameter
-/// to override the default ApiService.
+
 class BlacklistWithApiService extends StatefulWidget {
   final ApiService apiService;
   const BlacklistWithApiService({Key? key, required this.apiService})
@@ -236,8 +226,6 @@ class _BlacklistWithApiServiceState extends State<BlacklistWithApiService> {
 
   @override
   Widget build(BuildContext context) {
-    // For simplicity, we won't resolve DNS here. We can assume it returns a placeholder.
-    // Replace the actual widgets with placeholders or use the original code.
     final blockedEntries = blacklist
         .where((entry) => myBlacklist.any((myentry) =>
             myentry['blacklist_entry__capturedpacket_entry__ip'] ==
