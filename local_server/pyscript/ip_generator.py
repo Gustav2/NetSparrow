@@ -40,6 +40,6 @@ def write_ips(num_ips):
 
 if __name__ == "__main__":
     print("Enter amount of IPs to generate: ")
-    num_ips = input()
+    num_ips = int(input())
     write_ips(num_ips)
     print(f"Finished generating {num_ips} unique IPs in {BLACKLIST_PATH}")
