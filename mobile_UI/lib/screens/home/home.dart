@@ -50,10 +50,15 @@ class _HomeState extends State<Home> {
       setState(() {
         _status = statusData ? 'running' : 'error';
         _blockedIps = blockedData.length;
-        _centralServerIps = centralServerIpsData.length;
-        _percentageBlocked = ((_blockedIps / _centralServerIps) * 100).toInt();
+        _centralServerIps = centralServerIpsData.length ?? 0;
+        if (_centralServerIps == 0) {
+          _percentageBlocked = 0;
+        } else {
+          _percentageBlocked = ((_blockedIps / _centralServerIps) * 100).toInt();
+        }
       });
     } catch (e) {
+      print("Error fetching data: $e");
       if (!mounted) return;
       setState(() {
         _status = "error";

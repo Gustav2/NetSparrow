@@ -23,8 +23,10 @@ class ApiService {
     );
 
     if (response.statusCode == 200) {
+      print("API is online");
       return true;
     } else {
+      print("API is offline");
       return false;
     }
   }
