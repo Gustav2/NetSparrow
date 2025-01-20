@@ -12,6 +12,7 @@ services:
       - /sys/class/net:/sys/class/net:ro  # To access interface details
       - /usr/bin/ethtool:/usr/bin/ethtool:ro  # For interface optimization
       - shared-data:/shared
+    restart: always
 
   pyscript:
     build:
@@ -19,6 +20,7 @@ services:
     container_name: pyscript
     volumes:
       - shared-data:/shared
+    restart: always
 
   ml:
     build:
@@ -26,6 +28,7 @@ services:
     container_name: ML
     volumes:
       - shared-data:/shared
+    restart: always
 
 volumes:
   shared-data:
