@@ -63,6 +63,7 @@ class _SettingsState extends State<Settings> {
   Future<void> postSettingsData() async {
     try {
       Map<String, dynamic> postData = {};
+      Map<String, dynamic> finalData = {};
 
       realsettings.forEach((key, value) {
         postData[key] = value;
@@ -74,7 +75,14 @@ class _SettingsState extends State<Settings> {
 
       print(postData);
 
-      await apiService.postSettings(postData);
+      postData.forEach((key, value) {
+        String newKey = key.replaceAll(' ', '_').toLowerCase();
+        finalData[newKey] = value;
+      });
+
+      print(finalData);
+
+      await apiService.postSettings(finalData);
     } catch (e) {
       print(e);
     }
